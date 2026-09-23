@@ -1,0 +1,128 @@
+﻿@page
+@model PragmaticBot.Server.Pages.Admin.GamesModel
+@{
+    ViewData["Title"] = "게임";
+}
+<h1>게임</h1>
+<p class="sub">봇의 "방 설정" 목록에 나오는 바카라 테이블입니다. PP 테이블 ID가 웹소켓 데이터와 방을 연결합니다.</p>
+
+<div class="panel">
+    <h2 style="margin-top:0">테이블 추가</h2>
+    <form method="post" asp-page-handler="Create">
+        <div class="row">
+            <label class="field"><span>게임 코드</span><input type="text" name="GameCode" required maxlength="64" /></label>
+            <label class="field"><span>제목</span><input type="text" name="Title" required maxlength="128" /></label>
+            <label class="field"><span>한글 제목</span><input type="text" name="TitleKo" maxlength="128" /></label>
+            <label class="field"><span>PP 테이블 ID</span><input type="text" name="PpTableId" maxlength="64" /></label>
+            <label class="field">
+                <span>프로바이더</span>
+                <select name="Provider">
+                    <option value="PragmaticPlay">프라그마틱</option>
+                    <option value="Evolution">에볼루션</option>
+                </select>
+            </label>
+            <label class="field"><span>정렬 순서</span><input type="number" name="SortOrder" value="0" /></label>
+        </div>
+        <button type="submit">추가</button>
+    </form>
+</div>
+
+<div class="panel">
+    <div class="tabs">
+        @foreach (var t in Model.Tabs)
+        {
+            <a class="tab @(t.Key == Model.Provider ? "active" : "")"
+               href="@Url.Page("/Admin/Games", new { provider = t.Key, size = Model.PageSize })">
+                @PragmaticBot.Server.Pages.Admin.GamesModel.ProviderLabel(t.Key)
+                <span class="tab-count">@t.Count</span>
+            </a>
+        }
+    </div>
+
+    <div class="actions" style="margin-bottom:12px">
+        <span class="muted">총 @Model.TotalCount.ToString("N0")개</span>
+    </div>
+
+    @if (Model.Visible.Count == 0)
+    {
+        <div class="empty">등록된 테이블이 없습니다.</div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th class="num">#</th><th>코드</th><th>제목</th><th>한글</th><th>테이블 ID</th>
+                    <th class="num">순서</th><th class="num">선택한 사용자</th><th>상태</th><th style="width:150px"></th>
+                </tr>
+                </thead>
+                <tbody>
+                @{ var rowNo = (Model.PageNo - 1) * Model.PageSize; }
+                @foreach (var g in Model.Visible)
+                {
+                    rowNo++;
+                    <tr>
+                        @* running number, not the database key — the key stays in the tooltip *@
+                        <td class="num" title="DB ID @g.Id">@rowNo</td>
+                        <td class="mono">@g.GameCode</td>
+                        <td>
+                            @g.Title
+                            @if (g.IsAutoDiscovered)
+                            {
+                                <span class="pill off" title="봇이 실시간 트래픽에서 발견해 자동 등록한 테이블입니다">자동</span>
+                            }
+                        </td>
+                        <td>@g.TitleKo</td>
+                        <td class="mono">@g.PpTableId</td>
+                        <td class="num">@g.SortOrder</td>
+                        <td class="num">@Model.SelectionCounts.GetValueOrDefault(g.Id)</td>
+                        <td>@if (g.IsEnabled) { <span class="pill on">노출</span> } else { <span class="pill off">숨김</span> }</td>
+                        <td>
+                            @* nowrap: the two forms were wrapping onto separate lines in this narrow column *@
+                            <div class="actions actions-inline">
+                                <form method="post" asp-page-handler="Toggle">
+                                    <input type="hidden" name="id" value="@g.Id" />
+                                    <input type="hidden" name="provider" value="@Model.Provider" />
+                                    <input type="hidden" name="size" value="@Model.PageSize" />
+                                    <input type="hidden" name="p" value="@Model.PageNo" />
+                                    <button type="submit" class="small ghost">@(g.IsEnabled ? "숨기기" : "노출")</button>
+                                </form>
+                                <form method="post" asp-page-handler="Delete" onsubmit="return confirm('이 게임을 삭제할까요?');">
+                                    <input type="hidden" name="id" value="@g.Id" />
+                                    <input type="hidden" name="provider" value="@Model.Provider" />
+                                    <input type="hidden" name="size" value="@Model.PageSize" />
+                                    <input type="hidden" name="p" value="@Model.PageNo" />
+                                    <button type="submit" class="small danger">삭제</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pager">
+            @if (Model.PageNo > 1)
+            {
+                <a class="btn small ghost" href="@Model.PageUrl(Url, Model.PageNo - 1)">← 이전</a>
+            }
+            <span class="muted">@Model.PageNo / @Model.TotalPages 페이지</span>
+            @if (Model.PageNo < Model.TotalPages)
+            {
+                <a class="btn small ghost" href="@Model.PageUrl(Url, Model.PageNo + 1)">다음 →</a>
+            }
+            <form method="get" class="page-size">
+                <input type="hidden" name="provider" value="@Model.Provider" />
+                <select name="size" title="페이지당 표시 개수" onchange="this.form.submit()">
+                    @foreach (var n in PragmaticBot.Server.Pages.Admin.GamesModel.PageSizeChoices)
+                    {
+                        <option value="@n" selected="@(Model.PageSize == n)">@(n)개씩</option>
+                    }
+                </select>
+                <noscript><button type="submit" class="small ghost">적용</button></noscript>
+            </form>
+        </div>
+    }
+</div>

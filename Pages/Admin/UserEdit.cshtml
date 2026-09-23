@@ -1,0 +1,202 @@
+﻿@page "{id:int}"
+@using PragmaticBot.Server.Data
+@model PragmaticBot.Server.Pages.Admin.UserEditModel
+@{
+    ViewData["Title"] = Model.Target?.Username ?? "사용자";
+}
+@if (Model.Target is null)
+{
+    <div class="panel"><div class="empty">사용자를 찾을 수 없거나 볼 권한이 없습니다.</div></div>
+    return;
+}
+@{
+    var t = Model.Target;
+}
+<p style="margin:0 0 10px"><a class="btn small ghost" href="@Url.Page("/Admin/Users")">← 목록으로</a></p>
+<h1>
+    @t.Username
+    <span class="pill role-@t.Role.ToString().ToLowerInvariant()">@Model.RoleLabel(t.Role)</span>
+    <span class="muted">· @t.DisplayName</span>
+</h1>
+
+<p class="crumbs">
+    @foreach (var a in Model.Ancestors)
+    {
+        <a href="@Url.Page("/Admin/UserEdit", new { id = a.Id })">@a.Username</a><span class="sep">›</span>
+    }
+    <strong>@t.Username</strong>
+</p>
+
+<p class="sub">
+    가입 @PragmaticBot.Server.Services.KoreaTime.Fmt(t.CreatedUtc, "yyyy-MM-dd") ·
+    마지막 로그인 @(PragmaticBot.Server.Services.KoreaTime.Fmt(t.LastLoginUtc, "yyyy-MM-dd HH:mm") ?? "없음") ·
+    @if (Model.IsOnline)
+    {
+        <span class="pill on">접속중 (@t.LastIpAddress)</span>
+    }
+    else
+    {
+        <span class="pill off">오프라인</span>
+    }
+</p>
+
+@if (t.Role > UserRole.Member)
+{
+    <div class="cards" style="margin-bottom:18px">
+        <div class="card"><div class="label">직속 하위</div><div class="value">@Model.DirectChildren</div></div>
+        <div class="card"><div class="label">산하 회원</div><div class="value">@Model.BranchMembers</div></div>
+    </div>
+}
+
+@if (!Model.CanManage)
+{
+    <div class="panel">
+        <div class="empty">
+            이 계정은 조회만 가능합니다. 본인 계정이거나 같은/상위 등급이면 변경할 수 없습니다.
+        </div>
+    </div>
+}
+else
+{
+    <div class="panel">
+        <h2 style="margin-top:0">계정 설정</h2>
+        <form method="post" asp-page-handler="Save">
+            <div class="row">
+                <label class="field"><span>아이디 (로그인)</span><input type="text" name="username" value="@t.Username" maxlength="64" autocomplete="off" /></label>
+                <label class="field"><span>표시 이름</span><input type="text" name="displayName" value="@t.DisplayName" maxlength="64" /></label>
+                <label class="field">
+                    <span>만료일 (비우면 무제한)</span>
+                    <input type="date" name="expirationDate" value="@(PragmaticBot.Server.Services.KoreaTime.Fmt(t.ExpirationDate, "yyyy-MM-dd"))" />
+                </label>
+            </div>
+            <div class="actions" style="margin:6px 0 16px">
+                <label class="checks">
+                    <input type="checkbox" name="isActive" value="true" @(t.IsActive ? "checked" : "") /> 활성
+                </label>
+                <label class="checks">
+                    <input type="checkbox" name="useProviderPragmatic" value="true" @(t.Providers.HasFlag(GameProviders.PragmaticPlay) ? "checked" : "") /> 프라그마틱
+                </label>
+                <label class="checks">
+                    <input type="checkbox" name="useProviderEvolution" value="true" @(t.Providers.HasFlag(GameProviders.Evolution) ? "checked" : "") /> 에볼루션
+                </label>
+                <label class="checks">
+                    <input type="checkbox" name="diagnosticLogging" value="true" @(t.DiagnosticLogging ? "checked" : "") /> 진단 로그
+                </label>
+                <span class="muted">— 켜면 이 계정의 봇이 Info 로그까지 올립니다. 문제 재현 때만 켜고 바로 끄십시오.</span>
+                @if (t.Role > UserRole.Member)
+                {
+                    <span class="muted">— 끄면 산하 계정의 봇도 모두 종료됩니다.</span>
+                }
+            </div>
+            <button type="submit">저장</button>
+        </form>
+    </div>
+
+    @if (Model.MoveTargets.Count > 0)
+    {
+        <div class="panel">
+            <h2 style="margin-top:0">소속 이동</h2>
+            <form method="post" asp-page-handler="Move" class="actions">
+                <select name="newParentId" style="max-width:320px">
+                    @foreach (var p in Model.MoveTargets)
+                    {
+                        <option value="@p.Id" selected="@(p.Id == t.ParentId)">
+                            @Model.RoleLabel(p.Role) · @p.Username
+                        </option>
+                    }
+                </select>
+                <button type="submit" class="ghost">이동</button>
+                <span class="muted">하위 조직도 함께 따라갑니다.</span>
+            </form>
+        </div>
+    }
+
+    <div class="panel">
+        <h2 style="margin-top:0">세션 · 비밀번호</h2>
+        <div class="actions">
+            <form method="post" asp-page-handler="ForceLogout">
+                <button type="submit" class="ghost" @(Model.IsOnline ? "" : "disabled")>강제 로그아웃</button>
+            </form>
+            <form method="post" asp-page-handler="ResetPassword" class="actions">
+                <input type="text" name="newPassword" placeholder="새 비밀번호" required minlength="4" style="width:180px" />
+                <button type="submit" class="ghost">비밀번호 변경</button>
+            </form>
+            <form method="post" asp-page-handler="Delete" onsubmit="return confirm('이 계정과 모든 기록을 삭제합니다. 계속할까요?');">
+                <button type="submit" class="danger">계정 삭제</button>
+            </form>
+        </div>
+    </div>
+}
+
+@if (t.Role == UserRole.Member)
+{
+    <div class="panel">
+        <h2 style="margin-top:0">사이트 슬롯</h2>
+        @if (Model.Sites.Count == 0)
+        {
+            <div class="empty">등록된 사이트가 없습니다. 봇에서 설정하면 여기에 나타납니다.</div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>슬롯</th><th>도메인</th><th>브라우저</th><th class="num">디버그 포트</th><th>활성</th><th>WebSocket</th></tr></thead>
+                    <tbody>
+                    @foreach (var s in Model.Sites)
+                    {
+                        <tr>
+                            <td>@s.SiteSlot</td>
+                            <td>@s.Domain</td>
+                            <td>@s.BrowserType</td>
+                            <td class="num">@s.DebugPort</td>
+                            <td>@if (s.IsActive) { <span class="pill on">ON</span> } else { <span class="pill off">OFF</span> }</td>
+                            <td class="mono wrap-any">@s.WebSocketUrl</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="panel">
+        <h2 style="margin-top:0">최근 배팅</h2>
+        @if (Model.RecentBets.Count == 0)
+        {
+            <div class="empty">배팅 기록이 없습니다.</div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>시각</th><th>테이블</th><th>배팅</th><th class="num">금액</th><th>결과</th><th class="num">손익</th></tr></thead>
+                    <tbody>
+                    @foreach (var b in Model.RecentBets)
+                    {
+                        <tr>
+                            <td class="mono">@PragmaticBot.Server.Services.KoreaTime.Fmt(b.CreatedUtc, "MM-dd HH:mm:ss")</td>
+                            <td class="mono">@b.TableId</td>
+                            <td>@b.BetType</td>
+                            <td class="num">@b.BetAmount.ToString("N0")</td>
+                            <td>@b.Status</td>
+                            <td class="num">@(b.Profit?.ToString("N0") ?? "-")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <p style="margin-top:12px">
+                <a href="@Url.Page("/Admin/Betting", new { userId = t.Id })">이 사용자의 전체 배팅내역 →</a>
+            </p>
+        }
+    </div>
+}
+else
+{
+    <div class="panel">
+        <h2 style="margin-top:0">산하 실적</h2>
+        <p style="margin:0">
+            <a href="@Url.Page("/Admin/Betting", new { branchOf = t.Id })">이 조직 산하 전체 배팅내역 →</a>
+        </p>
+    </div>
+}

@@ -1,0 +1,58 @@
+﻿@{
+    var isAdmin = User?.Identity?.IsAuthenticated == true;
+    // comes from AdminPageModel, which reads the live row — never a stale cookie claim
+    var isOwner = ViewData["IsOwner"] as bool? ?? false;
+    string Nav(string page, string label)
+    {
+        var current = ViewContext.RouteData.Values["page"]?.ToString();
+        var active = string.Equals(current, page, StringComparison.OrdinalIgnoreCase) ? " class=\"active\"" : "";
+        return $"<a href=\"{Url.Page(page)}\"{active}>{label}</a>";
+    }
+}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] · KingTigerBet 관리</title>
+    <link rel="stylesheet" href="~/css/admin.css" />
+</head>
+<body>
+@if (isAdmin)
+{
+    <header class="topbar">
+        <div class="brand">KingTigerBet <span>관리</span></div>
+        <nav>
+            @Html.Raw(Nav("/Admin/Index", "대시보드"))
+            @Html.Raw(Nav("/Admin/Users", "계정관리"))
+            @if (isOwner)
+            {
+                @Html.Raw(Nav("/Admin/Domains", "접속 현황"))
+                @Html.Raw(Nav("/Admin/Games", "게임"))
+                @Html.Raw(Nav("/Admin/Notices", "공지"))
+                @Html.Raw(Nav("/Admin/BotVersion", "봇 버전"))
+            }
+            @Html.Raw(Nav("/Admin/Betting", "배팅내역"))
+            @Html.Raw(Nav("/Admin/Logs", "로그"))
+        </nav>
+        @* asp-page (not a literal action) so the form tag helper injects the antiforgery token *@
+        <form method="post" asp-page="/Admin/Logout" class="logout">
+            <a class="who-link" href="@Url.Page("/Admin/Account")" title="내 정보 수정">@(User?.Identity?.Name)</a>
+            <button type="submit">로그아웃</button>
+        </form>
+    </header>
+}
+<main class="@(isAdmin ? "shell" : "shell centered")">
+    @if (TempData["Ok"] is string ok)
+    {
+        <div class="flash ok">@ok</div>
+    }
+    @if (TempData["Err"] is string err)
+    {
+        <div class="flash err">@err</div>
+    }
+    @RenderBody()
+</main>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

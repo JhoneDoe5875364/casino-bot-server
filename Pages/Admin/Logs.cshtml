@@ -1,0 +1,143 @@
+﻿@page
+@model PragmaticBot.Server.Pages.Admin.LogsModel
+@{
+    ViewData["Title"] = "로그";
+}
+<h1>로그</h1>
+<p class="sub">봇이 전송한 로그입니다. Info 이상만 서버로 올라옵니다.</p>
+
+<div class="panel">
+    <form method="get" class="filters">
+        <label class="field">
+            <span>사용자</span>
+            <select name="userId">
+                <option value="">전체</option>
+                @foreach (var u in Model.AllUsers)
+                {
+                    <option value="@u.Id" selected="@(Model.UserId == u.Id)">@u.Username</option>
+                }
+            </select>
+        </label>
+        <label class="field">
+            <span>레벨</span>
+            <select name="level">
+                <option value="">전체</option>
+                @foreach (var l in new[] { "Info", "Warning", "Error", "Critical", "Fatal" })
+                {
+                    <option value="@l" selected="@(Model.Level == l)">@l</option>
+                }
+            </select>
+        </label>
+        <label class="field"><span>분류</span><input type="text" name="category" value="@Model.Category" placeholder="예: AutoBetting" /></label>
+        <label class="field"><span>검색어</span><input type="text" name="q" value="@Model.Q" /></label>
+        <input type="hidden" name="size" value="@Model.PageSize" />
+        <button type="submit">조회</button>
+        <a class="btn ghost" href="@Url.Page("/Admin/Logs")">초기화</a>
+    </form>
+</div>
+
+<div class="panel">
+    <form method="post" id="logForm">
+    <input type="hidden" name="userId" value="@Model.UserId" />
+    <input type="hidden" name="level" value="@Model.Level" />
+    <input type="hidden" name="category" value="@Model.Category" />
+    <input type="hidden" name="q" value="@Model.Q" />
+    <input type="hidden" name="size" value="@Model.PageSize" />
+    <input type="hidden" name="p" value="@Model.PageNo" />
+    <div class="actions" style="margin-bottom:12px">
+        <span class="muted">총 @Model.TotalCount.ToString("N0") 건</span>
+        <button type="submit" asp-page-handler="Delete" class="small danger"
+                onclick="return confirm('체크한 로그를 삭제합니다. 계속할까요?');">선택 삭제</button>
+        <button type="submit" asp-page-handler="DeleteFiltered" class="small danger"
+                onclick="return confirm('현재 조회 조건에 맞는 로그 @Model.TotalCount.ToString("N0")건을 모두 삭제합니다. 되돌릴 수 없습니다. 계속할까요?');">조회 결과 전체 삭제</button>
+        @if (Model.IsOwner)
+        {
+            <button type="submit" asp-page-handler="Purge" class="small ghost"
+                    onclick="return confirm('30일 이전 로그를 삭제합니다. 계속할까요?');">30일 이전 정리</button>
+        }
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th style="width:34px"><input type="checkbox" id="logAll" title="전체 선택" /></th><th>시각</th><th>사용자</th><th>레벨</th><th>분류</th><th>메시지</th><th style="width:72px"></th></tr></thead>
+            <tbody>
+            @if (Model.Rows.Count == 0)
+            {
+                <tr><td colspan="7" class="empty">조건에 맞는 로그가 없습니다.</td></tr>
+            }
+            @foreach (var l in Model.Rows)
+            {
+                <tr>
+                    <td><input type="checkbox" class="logPick" name="ids" value="@l.Id" /></td>
+                    <td class="mono" style="white-space:nowrap">@PragmaticBot.Server.Services.KoreaTime.Fmt(l.CreatedUtc, "MM-dd HH:mm:ss")</td>
+                    <td>@(l.UserId is null ? "-" : Model.UserNames.GetValueOrDefault(l.UserId.Value))</td>
+                    <td>
+                        @switch (l.Level)
+                        {
+                            case "Error":
+                            case "Critical":
+                            case "Fatal": <span class="pill bad">@l.Level</span> break;
+                            case "Warning": <span class="pill warn">@l.Level</span> break;
+                            default: <span class="pill off">@l.Level</span> break;
+                        }
+                    </td>
+                    <td>@l.Category</td>
+                    <td class="wrap-any">
+                        @l.Message
+                        @if (!string.IsNullOrEmpty(l.StackTrace))
+                        {
+                            <details style="margin-top:4px">
+                                <summary class="muted" style="cursor:pointer">스택 추적</summary>
+                                <pre class="mono wrap-any" style="white-space:pre-wrap">@l.StackTrace</pre>
+                            </details>
+                        }
+                    </td>
+                    <td>
+                        <button type="submit" asp-page-handler="DeleteOne" name="id" value="@l.Id"
+                                class="small danger" style="white-space:nowrap"
+                                onclick="return confirm('이 로그를 삭제할까요?');">삭제</button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="pager">
+        @if (Model.PageNo > 1)
+        {
+            <a class="btn small ghost" href="@Model.PageUrl(Url, Model.PageNo - 1)">← 이전</a>
+        }
+        <span class="muted">@Model.PageNo / @Model.TotalPages 페이지</span>
+        @if (Model.PageNo < Model.TotalPages)
+        {
+            <a class="btn small ghost" href="@Model.PageUrl(Url, Model.PageNo + 1)">다음 →</a>
+        }
+    </div>
+    </form>
+
+    @* its own GET form: the table above sits inside a POST form, which cannot be nested *@
+    <form method="get" class="pager page-size-row">
+        <input type="hidden" name="userId" value="@Model.UserId" />
+        <input type="hidden" name="level" value="@Model.Level" />
+        <input type="hidden" name="category" value="@Model.Category" />
+        <input type="hidden" name="q" value="@Model.Q" />
+        <select name="size" title="페이지당 표시 개수" onchange="this.form.submit()">
+            @foreach (var n in PragmaticBot.Server.Pages.Admin.LogsModel.PageSizeChoices)
+            {
+                <option value="@n" selected="@(Model.PageSize == n)">@(n)건씩</option>
+            }
+        </select>
+        <noscript><button type="submit" class="small ghost">적용</button></noscript>
+    </form>
+</div>
+
+<script>
+    // header checkbox ticks every row on this page
+    (function () {
+        var all = document.getElementById('logAll');
+        if (!all) return;
+        all.addEventListener('change', function () {
+            document.querySelectorAll('.logPick').forEach(function (c) { c.checked = all.checked; });
+        });
+    })();
+</script>

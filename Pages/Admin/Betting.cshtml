@@ -1,0 +1,345 @@
+﻿@page
+@model PragmaticBot.Server.Pages.Admin.BettingModel
+@{
+    ViewData["Title"] = "배팅내역";
+}
+<h1>배팅내역</h1>
+<p class="sub">
+    @(Model.BranchLabel ?? $"{Model.RoleLabel(Model.Me.Role)} {Model.Me.Username} 산하 전체") ·
+    가상 배팅은 기본적으로 제외됩니다.
+</p>
+
+<div class="panel">
+    <form method="get" class="filters">
+        @if (Model.BranchChoices.Count > 0)
+        {
+            <label class="field">
+                <span>조직</span>
+                <select name="branchOf" id="branchPick">
+                    <option value="">전체</option>
+                    @foreach (var b in Model.BranchChoices)
+                    {
+                        <option value="@b.Id" data-prefix="@Model.BranchPrefixes.GetValueOrDefault(b.Id)"
+                                selected="@(Model.BranchOf == b.Id)">
+                            @Model.RoleLabel(b.Role) · @b.Username
+                        </option>
+                    }
+                </select>
+            </label>
+        }
+        <label class="field">
+            <span>회원</span>
+            <select name="userId" id="memberPick">
+                <option value="">전체</option>
+                @foreach (var u in Model.MemberChoices)
+                {
+                    <option value="@u.Id" data-path="@Model.MemberPaths.GetValueOrDefault(u.Id)"
+                            selected="@(Model.UserId == u.Id)">@u.Username</option>
+                }
+            </select>
+        </label>
+        <label class="field"><span>시작일</span><input type="date" name="from" value="@Model.From?.ToString("yyyy-MM-dd")" /></label>
+        <label class="field"><span>종료일</span><input type="date" name="to" value="@Model.To?.ToString("yyyy-MM-dd")" /></label>
+        <label class="field">
+            <span>결과</span>
+            <select name="status">
+                <option value="">전체</option>
+                @foreach (var s in new[] { "Won", "Lost", "Tie", "Pending", "Cancelled" })
+                {
+                    <option value="@s" selected="@(Model.Status == s)">@s</option>
+                }
+            </select>
+        </label>
+        <label class="checks" style="padding-bottom:8px">
+            <input type="checkbox" name="includeVirtual" value="true" checked="@Model.IncludeVirtual" /> 가상 포함
+        </label>
+        <input type="hidden" name="size" value="@Model.PageSize" />
+        <button type="submit">조회</button>
+    </form>
+</div>
+
+<div class="cards" style="margin-bottom:18px">
+    <div class="card"><div class="label">건수</div><div class="value">@Model.TotalCount.ToString("N0")</div></div>
+    <div class="card"><div class="label">배팅 합계</div><div class="value">@Model.TotalBet.ToString("N0")</div></div>
+    <div class="card">
+        <div class="label">손익 합계</div>
+        <div class="value @(Model.TotalProfit >= 0 ? "ok" : "err")">@Model.TotalProfit.ToString("N0")</div>
+    </div>
+    <div class="card"><div class="label">당첨 / 미당첨 / 타이</div><div class="value">@Model.WinCount / @Model.LossCount / @Model.TieCount</div></div>
+    <div class="card"><div class="label">미정산</div><div class="value @(Model.PendingCount > 0 ? "err" : "")">@Model.PendingCount.ToString("N0")</div></div>
+</div>
+
+<div class="panel chart-panel">
+    <div class="chart-head">
+        <h2>잔액 추이</h2>
+        <span class="muted">
+            베팅 @Model.TotalPoints.ToString("N0")건 전체
+            @if (Model.IsCondensed)
+            {
+                <text>· @Model.Series.Count.ToString("N0")개 지점으로 축약</text>
+            }
+        </span>
+    </div>
+    @if (Model.Series.Count == 0)
+    {
+        <div class="empty">그릴 기록이 없습니다.</div>
+    }
+    else
+    {
+        <div class="chart-body">
+            <div class="chart-axis">
+                <span class="chart-axis-top">@Model.SeriesMax.ToString("N0")</span>
+                <span class="chart-axis-zero muted" style="top:@Model.ZeroY.ToString("0.##")%">@Model.StartBalance.ToString("N0")</span>
+                <span class="chart-axis-bottom">@Model.SeriesMin.ToString("N0")</span>
+            </div>
+            <div class="chart-plot" id="chartPlot" data-series="@Model.SeriesJson">
+                @* viewBox is a plain 0-100 space; preserveAspectRatio="none" lets it stretch to any width *@
+                <svg class="chart-svg" viewBox="0 0 100 100" preserveAspectRatio="none" role="img"
+                     aria-label="누적 손익 추이">
+                    <line x1="0" y1="@Model.ZeroY.ToString("0.##")" x2="100" y2="@Model.ZeroY.ToString("0.##")"
+                          class="chart-zero" vector-effect="non-scaling-stroke" />
+                    <polyline class="@(Model.EndBalance >= Model.StartBalance ? "chart-line up" : "chart-line down")"
+                              vector-effect="non-scaling-stroke"
+                              points="@string.Join(" ", Model.Series.Select(p => $"{p.X:0.##},{p.Y:0.##}"))" />
+                </svg>
+                <div class="chart-dots">
+                    @foreach (var p in Model.ShowDots ? Model.Series : [])
+                    {
+                        <span class="chart-dot @(p.Cumulative >= 0 ? "up" : "down")"
+                              style="left:@p.X.ToString("0.##")%; top:@p.Y.ToString("0.##")%"></span>
+                    }
+                </div>
+                <div class="chart-cursor" hidden>
+                    <div class="chart-vline"></div>
+                    <div class="chart-hline"></div>
+                    <div class="chart-marker"></div>
+                </div>
+                <div class="chart-tip" hidden></div>
+            </div>
+        </div>
+        <div class="chart-foot muted">
+            <span>@Model.Series[0].Label</span>
+            <span>@Model.Series[^1].Label</span>
+        </div>
+        <div class="chart-summary">
+            <div><span>시작 잔액</span><b>@Model.StartBalance.ToString("N0")</b></div>
+            <div><span>종료 잔액</span><b>@Model.EndBalance.ToString("N0")</b></div>
+            @if (Model.CurrentBalance is { } cur)
+            {
+                <div><span>현재 잔액<small class="muted"> (최신 이력)</small></span><b>@cur.ToString("N0")</b></div>
+            }
+            <div>
+                <span>총 이익</span>
+                <b class="@(Model.TotalProfit >= 0 ? "ok" : "err")">
+                    @Model.TotalProfit.ToString("+#,##0;-#,##0;0")@if (Model.ProfitPercent is { } pct) { <text> (@pct.ToString("+0.##;-0.##;0")%)</text> }
+                </b>
+            </div>
+            <div><span>배팅 합계</span><b>@Model.TotalBet.ToString("N0")</b></div>
+            <div><span>가동 시간</span><b>@Model.ElapsedText</b></div>
+            <div><span>베팅 수</span><b>@Model.TotalPoints.ToString("N0")건</b></div>
+        </div>
+    }
+</div>
+
+<div class="panel">
+    <form method="post" id="betForm">
+    <input type="hidden" name="userId" value="@Model.UserId" />
+    <input type="hidden" name="branchOf" value="@Model.BranchOf" />
+    <input type="hidden" name="from" value="@(Model.From?.ToString("yyyy-MM-dd"))" />
+    <input type="hidden" name="to" value="@(Model.To?.ToString("yyyy-MM-dd"))" />
+    <input type="hidden" name="status" value="@Model.Status" />
+    <input type="hidden" name="includeVirtual" value="@Model.IncludeVirtual" />
+    <input type="hidden" name="size" value="@Model.PageSize" />
+    <input type="hidden" name="p" value="@Model.PageNo" />
+    <div class="actions" style="margin-bottom:12px">
+        <button type="submit" asp-page-handler="Delete" class="small danger"
+                onclick="return confirm('체크한 베팅 내역을 삭제합니다. 집계에서도 빠집니다. 계속할까요?');">선택 삭제</button>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+            <tr>
+                <th style="width:34px"><input type="checkbox" id="betAll" title="전체 선택" /></th>
+                <th>시각</th><th>사용자</th><th>테이블</th><th>배팅</th>
+                <th class="num">금액</th><th>결과</th><th class="num">손익</th>
+                <th class="num">잔액(전→후)</th><th>행렬</th><th>가상</th><th style="width:72px"></th>
+            </tr>
+            </thead>
+            <tbody>
+            @if (Model.Rows.Count == 0)
+            {
+                <tr><td colspan="12" class="empty">조건에 맞는 기록이 없습니다.</td></tr>
+            }
+            @foreach (var b in Model.Rows)
+            {
+                <tr>
+                    <td><input type="checkbox" class="betPick" name="ids" value="@b.Id" /></td>
+                    <td class="mono">@PragmaticBot.Server.Services.KoreaTime.Fmt(b.CreatedUtc, "MM-dd HH:mm:ss")</td>
+                    <td>@Model.UserNames.GetValueOrDefault(b.UserId)</td>
+                    <td class="mono">@b.TableId</td>
+                    <td>@b.BetType</td>
+                    <td class="num">@b.BetAmount.ToString("N0")</td>
+                    <td>
+                        @switch (b.Status)
+                        {
+                            case "Won":
+                            case "Win": <span class="pill on">당첨</span> break;
+                            case "Lost":
+                            case "Loss": <span class="pill bad">미당첨</span> break;
+                            case "Tie": <span class="pill warn">타이</span> break;
+                            case "Pending": <span class="pill warn">미정산</span> break;
+                            default: <span class="pill off">@b.Status</span> break;
+                        }
+                    </td>
+                    <td class="num">@(b.Profit?.ToString("N0") ?? "-")</td>
+                    <td class="num mono">@b.BalanceBefore.ToString("N0") → @b.BalanceAfter.ToString("N0")</td>
+                    <td class="mono">@(b.MatrixRow is null ? "-" : $"{b.BetAmountType}:{b.MatrixRow},{b.MatrixCol}")</td>
+                    <td>@if (b.IsVirtual) { <span class="pill off">가상</span> }</td>
+                    <td>
+                        <button type="submit" asp-page-handler="DeleteOne" name="id" value="@b.Id"
+                                class="small danger" style="white-space:nowrap"
+                                onclick="return confirm('이 내역을 삭제할까요?');">삭제</button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="pager">
+        @if (Model.PageNo > 1)
+        {
+            <a class="btn small ghost" href="@Model.PageUrl(Url, Model.PageNo - 1)">← 이전</a>
+        }
+        <span class="muted">@Model.PageNo / @Model.TotalPages 페이지</span>
+        @if (Model.PageNo < Model.TotalPages)
+        {
+            <a class="btn small ghost" href="@Model.PageUrl(Url, Model.PageNo + 1)">다음 →</a>
+        }
+    </div>
+    </form>
+
+    @* its own GET form: the table above sits inside a POST form, which cannot be nested *@
+    <form method="get" class="pager page-size-row">
+        <input type="hidden" name="userId" value="@Model.UserId" />
+        <input type="hidden" name="branchOf" value="@Model.BranchOf" />
+        <input type="hidden" name="from" value="@(Model.From?.ToString("yyyy-MM-dd"))" />
+        <input type="hidden" name="to" value="@(Model.To?.ToString("yyyy-MM-dd"))" />
+        <input type="hidden" name="status" value="@Model.Status" />
+        <input type="hidden" name="includeVirtual" value="@Model.IncludeVirtual" />
+        <select name="size" title="페이지당 표시 개수" onchange="this.form.submit()">
+            @foreach (var n in PragmaticBot.Server.Pages.Admin.BettingModel.PageSizeChoices)
+            {
+                <option value="@n" selected="@(Model.PageSize == n)">@(n)건씩</option>
+            }
+        </select>
+        <noscript><button type="submit" class="small ghost">적용</button></noscript>
+    </form>
+</div>
+
+<script>
+    // header checkbox ticks every row on this page
+    (function () {
+        var all = document.getElementById('betAll');
+        if (!all) return;
+        all.addEventListener('change', function () {
+            document.querySelectorAll('.betPick').forEach(function (c) { c.checked = all.checked; });
+        });
+    })();
+</script>
+
+<script>
+    // 그래프 위에서 마우스를 따라가는 십자선과 말풍선. 값 하나하나를 브라우저 기본 title 로 띄우면
+    // 반응이 느리고 누적·증감을 함께 보여줄 수 없어서 직접 그린다.
+    (function () {
+        var plot = document.getElementById('chartPlot');
+        if (!plot) return;
+
+        var pts;
+        try { pts = JSON.parse(plot.dataset.series || '[]'); } catch (e) { pts = []; }
+        if (!pts.length) return;
+
+        var cursor = plot.querySelector('.chart-cursor');
+        var vline = plot.querySelector('.chart-vline');
+        var hline = plot.querySelector('.chart-hline');
+        var marker = plot.querySelector('.chart-marker');
+        var tip = plot.querySelector('.chart-tip');
+
+        var money = function (n) { return Math.round(n).toLocaleString('ko-KR'); };
+        var signed = function (n) { return (n > 0 ? '+' : '') + money(n); };
+
+        function nearest(xPercent) {
+            // points are evenly spaced, so jump straight to the index instead of scanning
+            var i = Math.round(xPercent / 100 * (pts.length - 1));
+            return pts[Math.max(0, Math.min(pts.length - 1, i))];
+        }
+
+        function show(ev) {
+            var box = plot.getBoundingClientRect();
+            if (!box.width) return;
+            var p = nearest((ev.clientX - box.left) / box.width * 100);
+
+            cursor.hidden = false;
+            tip.hidden = false;
+            vline.style.left = p.x + '%';
+            hline.style.top = p.y + '%';
+            marker.style.left = p.x + '%';
+            marker.style.top = p.y + '%';
+            marker.className = 'chart-marker ' + (p.c >= 0 ? 'up' : 'down');
+
+            tip.innerHTML =
+                '<div class="chart-tip-time">' + p.l + '</div>' +
+                '<div class="chart-tip-row"><span>잔액</span><b>' + money(p.c) + '</b></div>' +
+                '<div class="chart-tip-row"><span>증감</span><b class="' + (p.d >= 0 ? 'ok' : 'err') + '">' + signed(p.d) + '</b></div>';
+
+            // keep the bubble inside the plot instead of letting it hang off an edge
+            var w = tip.offsetWidth || 150;
+            var left = box.width * p.x / 100 + 14;
+            if (left + w > box.width) left = box.width * p.x / 100 - w - 14;
+            tip.style.left = Math.max(0, left) + 'px';
+
+            var h = tip.offsetHeight || 70;
+            var top = box.height * p.y / 100 - h / 2;
+            tip.style.top = Math.max(0, Math.min(box.height - h, top)) + 'px';
+        }
+
+        function hide() { cursor.hidden = true; tip.hidden = true; }
+
+        plot.addEventListener('mousemove', show);
+        plot.addEventListener('mouseleave', hide);
+        plot.addEventListener('touchmove', function (e) {
+            if (e.touches.length) show(e.touches[0]);
+        }, { passive: true });
+        plot.addEventListener('touchend', hide);
+    })();
+</script>
+
+<script>
+    // 회원 목록을 선택한 조직 산하로 좁힌다. 두 필터가 따로 놀면 존재할 수 없는 조합을 고르게 되고,
+    // 결과가 0건으로 나오는 이유도 화면에 드러나지 않는다.
+    (function () {
+        var branch = document.getElementById('branchPick');
+        var member = document.getElementById('memberPick');
+        if (!branch || !member) return;
+
+        function apply(resetIfHidden) {
+            var opt = branch.options[branch.selectedIndex];
+            var prefix = opt ? opt.getAttribute('data-prefix') : null;
+            var selectedHidden = false;
+
+            Array.prototype.forEach.call(member.options, function (o) {
+                if (!o.value) return;                       // "전체" 는 항상 남긴다
+                var path = o.getAttribute('data-path') || '';
+                var show = !prefix || path.indexOf(prefix) === 0;
+                o.hidden = !show;
+                o.disabled = !show;
+                if (!show && o.selected) selectedHidden = true;
+            });
+
+            if (selectedHidden && resetIfHidden) member.value = '';
+        }
+
+        branch.addEventListener('change', function () { apply(true); });
+        apply(false);   // 첫 렌더에서는 선택을 건드리지 않고 목록만 맞춘다
+    })();
+</script>

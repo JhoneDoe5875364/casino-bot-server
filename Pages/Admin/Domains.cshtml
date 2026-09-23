@@ -1,0 +1,94 @@
+@page
+@model PragmaticBot.Server.Pages.Admin.DomainsModel
+@{
+    ViewData["Title"] = "접속 현황";
+}
+<h1>접속 현황</h1>
+<p class="sub">
+    회원의 봇이 지금 어느 사이트에 붙어 있는지 보여줍니다. 도메인·WebSocket 주소는 봇이 접속할 때마다
+    스스로 보고하므로 여기서 고칠 값은 없습니다.
+    @if (Model.MemberCount > 0)
+    {
+        @* parenthesised: Korean letters are valid identifier characters, so @Model.MemberCount개 parses as one name *@
+        <text>— 계정 @(Model.MemberCount)개 중 <strong>@(Model.OnlineCount)개</strong> 실행 중</text>
+    }
+</p>
+
+<div class="panel">
+    @if (Model.Rows.Count == 0)
+    {
+        <div class="empty">표시할 계정이 없습니다.</div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>계정</th>
+                        <th>슬롯</th>
+                        <th>접속 도메인</th>
+                        <th>상태</th>
+                        <th>마지막 보고</th>
+                        <th>도메인 갱신</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model.Rows)
+                {
+                    <tr>
+                        <td>
+                            <strong>@r.Username</strong>
+                            @if (!string.IsNullOrWhiteSpace(r.DisplayName) && r.DisplayName != r.Username)
+                            {
+                                <span class="muted"> @r.DisplayName</span>
+                            }
+                        </td>
+                        <td>
+                            @if (r.SiteSlot == 0)
+                            {
+                                <span class="muted">주</span>
+                            }
+                            else
+                            {
+                                <text>분할 @r.SiteSlot</text>
+                            }
+                        </td>
+                        <td class="mono">
+                            @if (string.IsNullOrWhiteSpace(r.Domain))
+                            {
+                                <span class="muted">접속 기록 없음</span>
+                            }
+                            else
+                            {
+                                <span title="@r.WebSocketUrl">@r.Domain</span>
+                            }
+                        </td>
+                        <td>
+                            @if (r.IsOnline)
+                            {
+                                <span class="pill on">실행 중</span>
+                            }
+                            else
+                            {
+                                <span class="pill off">중지</span>
+                            }
+                        </td>
+                        <td class="mono">@PragmaticBot.Server.Pages.Admin.DomainsModel.Ago(r.LastHeartbeatUtc)</td>
+                        <td class="mono">@PragmaticBot.Server.Pages.Admin.DomainsModel.Ago(r.UpdatedUtc)</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<div class="panel">
+    <h2 style="margin-top:0">찢어베팅 사이트는 어디서 설정합니까</h2>
+    <p class="sub" style="margin:0">
+        회원의 <strong>봇 → 옵션 설정 → 분할개수</strong>에서 정합니다. 어느 카지노 계정을 가지고 있는지는
+        회원 본인만 알고, 각 사이트 로그인도 회원이 직접 해야 하므로 관리자 화면에서는 지정하지 않습니다.
+        위 표의 <strong>분할</strong> 행은 회원이 실제로 연결한 보조 사이트가 보고된 결과입니다.
+    </p>
+</div>

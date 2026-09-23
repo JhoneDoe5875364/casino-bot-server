@@ -1,0 +1,91 @@
+@page
+@model PragmaticBot.Server.Pages.Admin.IndexModel
+@{
+    ViewData["Title"] = "대시보드";
+}
+<h1>대시보드</h1>
+<p class="sub">
+    @Model.RoleLabel(Model.Me.Role) <strong>@Model.Me.Username</strong> 산하 현황 ·
+    @PragmaticBot.Server.Services.KoreaTime.Now.ToString("yyyy-MM-dd HH:mm") 기준
+</p>
+
+<div class="cards">
+    @if (Model.Me.Role >= PragmaticBot.Server.Data.UserRole.Distributor)
+    {
+        <div class="card"><div class="label">산하 총판</div><div class="value">@Model.Distributors</div></div>
+    }
+    @if (Model.Me.Role >= PragmaticBot.Server.Data.UserRole.Distributor)
+    {
+        <div class="card"><div class="label">산하 대리점</div><div class="value">@Model.Agencies</div></div>
+    }
+    <div class="card"><div class="label">산하 회원</div><div class="value">@Model.TotalMembers</div></div>
+    <div class="card"><div class="label">활성 회원</div><div class="value ok">@Model.ActiveMembers</div></div>
+    <div class="card"><div class="label">접속 중 (5분 내)</div><div class="value ok">@Model.OnlineMembers</div></div>
+    <div class="card"><div class="label">만료 임박 (7일)</div><div class="value @(Model.ExpiringSoon > 0 ? "err" : "")">@Model.ExpiringSoon</div></div>
+    <div class="card"><div class="label">오늘 배팅</div><div class="value">@Model.TodayBets</div></div>
+    <div class="card">
+        <div class="label">오늘 손익</div>
+        <div class="value @(Model.TodayProfit >= 0 ? "ok" : "err")">@Model.TodayProfit.ToString("N0")</div>
+    </div>
+</div>
+
+<h2>현재 접속 중인 회원</h2>
+<div class="panel">
+    @if (Model.Online.Count == 0)
+    {
+        <div class="empty">접속 중인 회원이 없습니다.</div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>아이디</th><th>이름</th><th>마지막 하트비트</th><th>IP</th><th>만료일</th><th></th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var u in Model.Online)
+                {
+                    <tr>
+                        <td>@u.Username</td>
+                        <td>@u.DisplayName</td>
+                        <td class="mono">@(PragmaticBot.Server.Services.KoreaTime.Fmt(u.LastHeartbeatUtc, "MM-dd HH:mm:ss"))</td>
+                        <td class="mono">@u.LastIpAddress</td>
+                        <td>@(PragmaticBot.Server.Services.KoreaTime.Fmt(u.ExpirationDate, "yyyy-MM-dd") ?? "무제한")</td>
+                        <td><a class="btn small ghost" href="@Url.Page("/Admin/UserEdit", new { id = u.Id })">관리</a></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<h2>최근 오류 로그</h2>
+<div class="panel">
+    @if (Model.RecentErrors.Count == 0)
+    {
+        <div class="empty">최근 오류가 없습니다.</div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>시각</th><th>사용자</th><th>분류</th><th>메시지</th></tr></thead>
+                <tbody>
+                @foreach (var l in Model.RecentErrors)
+                {
+                    <tr>
+                        <td class="mono">@PragmaticBot.Server.Services.KoreaTime.Fmt(l.CreatedUtc, "MM-dd HH:mm:ss")</td>
+                        <td>@(Model.UserNames.GetValueOrDefault(l.UserId ?? 0) ?? "-")</td>
+                        <td>@l.Category</td>
+                        <td class="wrap-any">@l.Message</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <p style="margin-top:12px"><a href="@Url.Page("/Admin/Logs")">전체 로그 보기 →</a></p>
+    }
+</div>

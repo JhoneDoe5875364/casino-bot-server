@@ -1,0 +1,65 @@
+@page
+@model PragmaticBot.Server.Pages.Admin.AccountModel
+@{
+    ViewData["Title"] = "내 계정";
+}
+<h1>내 계정</h1>
+<p class="sub">
+    <span class="pill role-@Model.Me.Role.ToString().ToLowerInvariant()">@Model.RoleLabel(Model.Me.Role)</span>
+    <strong>@Model.Me.Username</strong> ·
+    가입 @PragmaticBot.Server.Services.KoreaTime.Fmt(Model.Me.CreatedUtc, "yyyy-MM-dd") ·
+    마지막 로그인 @(PragmaticBot.Server.Services.KoreaTime.Fmt(Model.Me.LastLoginUtc, "yyyy-MM-dd HH:mm") ?? "없음")
+</p>
+
+<div class="panel">
+    <h2 style="margin-top:0">표시 이름</h2>
+    <form method="post" asp-page-handler="Rename">
+        <label class="field">
+            <span>이름</span>
+            <input type="text" name="displayName" value="@Model.Me.DisplayName" maxlength="64" required />
+        </label>
+        <button type="submit">저장</button>
+    </form>
+</div>
+
+<div class="panel">
+    <h2 style="margin-top:0">비밀번호 변경</h2>
+    <form method="post" asp-page-handler="ChangePassword">
+        <div class="row">
+            <label class="field">
+                <span>현재 비밀번호</span>
+                <input type="password" name="currentPassword" required autocomplete="current-password" />
+            </label>
+            <label class="field">
+                <span>새 비밀번호 (4자 이상)</span>
+                <input type="password" name="newPassword" required minlength="4" autocomplete="new-password" />
+            </label>
+            <label class="field">
+                <span>새 비밀번호 확인</span>
+                <input type="password" name="confirmPassword" required minlength="4" autocomplete="new-password" />
+            </label>
+        </div>
+        <button type="submit">비밀번호 변경</button>
+        <p class="muted" style="margin:10px 0 0">
+            변경하면 이 계정으로 로그인한 봇 세션이 종료되고, 관리 화면에서도 다시 로그인해야 합니다.
+        </p>
+    </form>
+</div>
+
+@if (Model.IsOwner)
+{
+    <div class="panel">
+        <h2 style="margin-top:0">본사 계정 추가</h2>
+        <p class="sub" style="margin-bottom:14px">
+            본사가 하나뿐이면 그 계정을 잃었을 때 복구할 방법이 없습니다. 예비 본사 계정을 하나 더 두는 편이 안전합니다.
+        </p>
+        <form method="post" asp-page-handler="AddOwner">
+            <div class="row">
+                <label class="field"><span>아이디</span><input type="text" name="username" required maxlength="64" /></label>
+                <label class="field"><span>표시 이름</span><input type="text" name="displayName" maxlength="64" /></label>
+                <label class="field"><span>비밀번호</span><input type="text" name="password" required minlength="4" /></label>
+            </div>
+            <button type="submit" class="ghost">본사 계정 생성</button>
+        </form>
+    </div>
+}

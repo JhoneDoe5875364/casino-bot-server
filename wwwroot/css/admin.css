@@ -1,0 +1,288 @@
+﻿:root {
+    --bg: #12182b;
+    --panel: #1a2140;
+    --panel-2: #16213e;
+    --line: #2c3557;
+    --ink: #eaeaea;
+    --muted: #9aa4c4;
+    --accent: #ff9f1c;
+    --ok: #21a366;
+    --err: #d64045;
+    --link: #6ea8fe;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.55 "맑은 고딕", "Malgun Gothic", system-ui, -apple-system, sans-serif;
+}
+
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ---------- top bar ---------- */
+
+.topbar {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 0 20px;
+    height: 56px;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--line);
+}
+
+.brand { font-weight: 700; font-size: 17px; color: var(--accent); letter-spacing: .5px; }
+.brand span { color: var(--muted); font-weight: 400; font-size: 13px; }
+
+.topbar nav { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
+
+.topbar nav a {
+    padding: 7px 13px;
+    border-radius: 6px;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.topbar nav a:hover { background: #222b4d; color: var(--ink); text-decoration: none; }
+.topbar nav a.active { background: var(--accent); color: #1a1a1a; font-weight: 700; }
+
+.logout { display: flex; align-items: center; gap: 10px; }
+.who { color: var(--muted); font-size: 13px; }
+
+/* ---------- layout ---------- */
+
+.shell { padding: 24px 20px 60px; max-width: 1400px; margin: 0 auto; }
+.shell.centered { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+
+h1 { font-size: 20px; margin: 0 0 4px; }
+h2 { font-size: 16px; margin: 28px 0 10px; color: var(--accent); }
+.sub { color: var(--muted); margin: 0 0 20px; font-size: 13px; }
+
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 18px;
+}
+
+/* ---------- cards ---------- */
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+
+.card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+}
+
+.card .label { color: var(--muted); font-size: 12px; }
+.card .value { font-size: 26px; font-weight: 700; margin-top: 4px; }
+.card .value.ok { color: var(--ok); }
+.card .value.err { color: var(--err); }
+
+/* ---------- tables ---------- */
+
+table { width: 100%; border-collapse: collapse; }
+
+th, td {
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    vertical-align: middle;
+}
+
+th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; }
+tbody tr:hover { background: #1e2547; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.table-wrap { overflow-x: auto; }
+.empty { color: var(--muted); padding: 24px 0; text-align: center; }
+
+/* ---------- form controls ---------- */
+
+label.field { display: block; margin-bottom: 12px; }
+label.field > span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+
+input[type=text], input[type=password], input[type=number], input[type=date],
+input[type=datetime-local], select, textarea {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--ink);
+    font: inherit;
+}
+
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+textarea { min-height: 90px; resize: vertical; }
+
+.row { display: flex; gap: 14px; flex-wrap: wrap; }
+.row > * { flex: 1 1 200px; }
+
+button, .btn {
+    padding: 8px 15px;
+    border: 0;
+    border-radius: 6px;
+    background: var(--accent);
+    color: #1a1a1a;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+button:hover, .btn:hover { filter: brightness(1.1); text-decoration: none; }
+button.ghost, .btn.ghost { background: #2c3557; color: var(--ink); }
+button.danger, .btn.danger { background: var(--err); color: #fff; }
+button.small, .btn.small { padding: 5px 10px; font-size: 12px; white-space: nowrap; }
+
+.actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.checks { display: flex; gap: 8px; align-items: center; }
+.checks input { width: auto; }
+
+/* ---------- misc ---------- */
+
+.flash { padding: 11px 15px; border-radius: 8px; margin-bottom: 18px; font-weight: 600; }
+.flash.ok { background: rgba(33, 163, 102, .15); border: 1px solid var(--ok); color: #7ee2b0; }
+.flash.err { background: rgba(214, 64, 69, .15); border: 1px solid var(--err); color: #ff9ea1; }
+
+/* nowrap: in a narrow column a two-character pill was breaking one letter per line */
+.pill { padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; display: inline-block; white-space: nowrap; }
+
+/* action cells must stay on one line — the default .actions wraps, which stacked the buttons */
+.actions-inline { flex-wrap: nowrap; }
+td .actions-inline form { flex: 0 0 auto; }
+.pill.on { background: rgba(33, 163, 102, .2); color: #7ee2b0; }
+.pill.off { background: rgba(154, 164, 196, .15); color: var(--muted); }
+.pill.warn { background: rgba(255, 159, 28, .18); color: var(--accent); }
+.pill.bad { background: rgba(214, 64, 69, .2); color: #ff9ea1; }
+
+.login-box { width: 360px; }
+.login-box h1 { text-align: center; color: var(--accent); font-size: 22px; margin-bottom: 20px; }
+.login-box button { width: 100%; margin-top: 6px; }
+
+.muted { color: var(--muted); }
+.mono { font-family: Consolas, "D2Coding", monospace; font-size: 12px; }
+.wrap-any { word-break: break-all; }
+.filters { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 14px; }
+.filters label.field { margin-bottom: 0; min-width: 150px; }
+.pager { display: flex; gap: 8px; align-items: center; margin-top: 14px; }
+/* the rows-per-page picker lives at the end of the pager, pushed to the right */
+.pager .page-size { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.page-size-row { margin-top: 8px; justify-content: flex-end; }
+
+/* ---------- org tree ---------- */
+
+.tree-indent { display: inline-block; }
+.tree-branch { color: var(--muted); margin-right: 5px; }
+
+.pill.role-owner { background: rgba(255, 159, 28, .22); color: var(--accent); }
+.pill.role-distributor { background: rgba(110, 168, 254, .2); color: var(--link); }
+.pill.role-agency { background: rgba(126, 226, 176, .18); color: #7ee2b0; }
+.pill.role-member { background: rgba(154, 164, 196, .15); color: var(--muted); }
+
+.crumbs { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
+.crumbs a { color: var(--link); }
+.crumbs .sep { margin: 0 6px; opacity: .6; }
+
+/* the signed-in name is the way into the profile page, so it has to read as a control */
+.who-link {
+    color: var(--ink); font-size: 13px; white-space: nowrap; font-weight: 600;
+    padding: 5px 10px; border: 1px solid transparent; border-radius: 6px;
+}
+.who-link:hover { border-color: var(--line); background: rgba(255, 255, 255, .05); }
+
+/* ---- 누적 손익 추이 ---- */
+.chart-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.chart-head h2 { margin: 0; font-size: 16px; }
+
+/* the SVG stretches; the dots layer sits on top in the same coordinate space */
+.chart-body { position: relative; display: flex; gap: 10px; height: 200px; }
+/* absolute so the 0 label can sit exactly on the dashed zero line rather than at the midpoint */
+.chart-axis { position: relative; font-size: 11px; text-align: right; min-width: 64px; width: 64px; }
+.chart-axis span { position: absolute; right: 0; white-space: nowrap; }
+.chart-axis-top { top: 0; }
+.chart-axis-bottom { bottom: 0; }
+.chart-axis-zero { transform: translateY(-50%); }
+.chart-zero { stroke: #3a4568; stroke-width: 1; stroke-dasharray: 4 4; }
+.chart-line { fill: none; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+.chart-line.up { stroke: #46c37b; }
+.chart-line.down { stroke: #e46060; }
+
+/* everything that overlays the line shares this box, so percentages line up with the SVG */
+.chart-plot { position: relative; flex: 1; height: 100%; cursor: crosshair; }
+.chart-svg { width: 100%; height: 100%; display: block; overflow: visible; }
+
+.chart-dots { position: absolute; inset: 0; pointer-events: none; }
+.chart-dot {
+    position: absolute; width: 6px; height: 6px; margin: -3px 0 0 -3px;
+    border-radius: 50%; background: #16213e; border: 2px solid #46c37b;
+}
+.chart-dot.down { border-color: #e46060; }
+
+.chart-cursor { position: absolute; inset: 0; pointer-events: none; }
+.chart-vline { position: absolute; top: 0; bottom: 0; width: 1px; background: #6b7aa8; opacity: .6; }
+.chart-hline { position: absolute; left: 0; right: 0; height: 1px; background: #6b7aa8; opacity: .35; }
+.chart-marker {
+    position: absolute; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px;
+    border-radius: 50%; background: #16213e; border: 2px solid #46c37b;
+    box-shadow: 0 0 0 3px rgba(70, 195, 123, .25);
+}
+.chart-marker.down { border-color: #e46060; box-shadow: 0 0 0 3px rgba(228, 96, 96, .25); }
+
+.chart-tip {
+    position: absolute; z-index: 5; pointer-events: none;
+    background: #0f1730; border: 1px solid #3a4568; border-radius: 6px;
+    padding: 8px 10px; font-size: 12px; min-width: 132px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
+}
+.chart-tip-time { color: #9fb0d9; margin-bottom: 5px; white-space: nowrap; }
+.chart-tip-row { display: flex; justify-content: space-between; gap: 14px; line-height: 1.7; }
+.chart-tip-row span { color: #8c9ac0; }
+
+.chart-foot { display: flex; justify-content: space-between; font-size: 11px; margin: 8px 0 0 74px; }
+
+/* summary strip under the chart: start/end balance, profit, runtime */
+.chart-summary {
+    display: flex; flex-wrap: wrap; gap: 8px 28px;
+    margin: 14px 0 0 74px; padding-top: 12px; border-top: 1px solid var(--line);
+}
+.chart-summary div { display: flex; flex-direction: column; gap: 3px; }
+.chart-summary span { color: var(--muted); font-size: 11px; }
+.chart-summary b { font-size: 15px; font-weight: 700; }
+/* .ok/.err were only defined for .card .value, so the tooltip and this strip rendered plain */
+.chart-summary b.ok, .chart-tip b.ok { color: var(--ok); }
+.chart-summary b.err, .chart-tip b.err { color: var(--err); }
+@media (max-width: 720px) { .chart-summary { margin-left: 48px; gap: 8px 18px; } }
+
+@media (max-width: 720px) {
+    .chart-body { height: 150px; }
+    .chart-axis { min-width: 48px; width: 48px; }
+    .chart-foot { margin-left: 48px; }
+}
+
+/* ---- 프로바이더 탭 ---- */
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tab {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 18px; border-radius: 8px 8px 0 0;
+    color: var(--muted); font-weight: 600; text-decoration: none;
+    border: 1px solid transparent; border-bottom: none;
+    margin-bottom: -1px;   /* sit on the strip's border so the active tab merges with the panel */
+    white-space: nowrap;
+}
+.tab:hover { color: var(--ink); background: rgba(255, 255, 255, .04); }
+.tab.active {
+    color: var(--ink); background: var(--panel);
+    border-color: var(--line); border-bottom: 1px solid var(--panel);
+}
+.tab-count {
+    font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px;
+    background: rgba(154, 164, 196, .18); color: var(--muted);
+}
+.tab.active .tab-count { background: rgba(255, 193, 7, .2); color: #ffc107; }

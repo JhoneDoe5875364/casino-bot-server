@@ -1,0 +1,21 @@
+﻿@page
+@model PragmaticBot.Server.Pages.Admin.LoginModel
+@{
+    ViewData["Title"] = "로그인";
+}
+<form method="post" class="panel login-box">
+    <h1>KingTigerBet 관리</h1>
+    @if (!string.IsNullOrEmpty(Model.Error))
+    {
+        <div class="flash err">@Model.Error</div>
+    }
+    <label class="field">
+        <span>관리자 아이디</span>
+        <input type="text" name="Username" value="@Model.Username" autofocus required />
+    </label>
+    <label class="field">
+        <span>비밀번호</span>
+        <input type="password" name="Password" required />
+    </label>
+    <button type="submit">로그인</button>
+</form>
