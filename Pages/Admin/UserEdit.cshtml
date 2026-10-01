@@ -60,7 +60,7 @@ else
 {
     <div class="panel">
         <h2 style="margin-top:0">계정 설정</h2>
-        <form method="post" asp-page-handler="Save">
+        <form method="post" asp-page-handler="Save" onsubmit="return ktConfirmSubmit(this, '계정 설정을 저장할까요?');">
             <div class="row">
                 <label class="field"><span>아이디 (로그인)</span><input type="text" name="username" value="@t.Username" maxlength="64" autocomplete="off" /></label>
                 <label class="field"><span>표시 이름</span><input type="text" name="displayName" value="@t.DisplayName" maxlength="64" /></label>
@@ -96,7 +96,7 @@ else
     {
         <div class="panel">
             <h2 style="margin-top:0">소속 이동</h2>
-            <form method="post" asp-page-handler="Move" class="actions">
+            <form method="post" asp-page-handler="Move" class="actions" onsubmit="return ktConfirmSubmit(this, '소속을 이동할까요? 하위 조직도 함께 이동됩니다.');">
                 <select name="newParentId" style="max-width:320px">
                     @foreach (var p in Model.MoveTargets)
                     {
@@ -114,14 +114,14 @@ else
     <div class="panel">
         <h2 style="margin-top:0">세션 · 비밀번호</h2>
         <div class="actions">
-            <form method="post" asp-page-handler="ForceLogout">
-                <button type="submit" class="ghost" @(Model.IsOnline ? "" : "disabled")>강제 로그아웃</button>
+            <form method="post" asp-page-handler="ForceLogout" onsubmit="return ktConfirmSubmit(this, '세션을 강제 종료할까요?');">
+                <button type="submit" class="ghost">강제 로그아웃</button>
             </form>
-            <form method="post" asp-page-handler="ResetPassword" class="actions">
+            <form method="post" asp-page-handler="ResetPassword" class="actions" onsubmit="return ktConfirmSubmit(this, '비밀번호를 변경하면 기존 세션이 종료됩니다. 계속할까요?');">
                 <input type="text" name="newPassword" placeholder="새 비밀번호" required minlength="4" style="width:180px" />
                 <button type="submit" class="ghost">비밀번호 변경</button>
             </form>
-            <form method="post" asp-page-handler="Delete" onsubmit="return confirm('이 계정과 모든 기록을 삭제합니다. 계속할까요?');">
+            <form method="post" asp-page-handler="Delete" onsubmit="return ktConfirmSubmit(this, '이 계정과 모든 기록을 삭제합니다. 계속할까요?');">
                 <button type="submit" class="danger">계정 삭제</button>
             </form>
         </div>
@@ -130,6 +130,263 @@ else
 
 @if (t.Role == UserRole.Member)
 {
+    @if (Model.ShowSettings)
+    {
+        <div class="panel">
+            <h2 style="margin-top:0">서식 설정</h2>
+            <form method="post" asp-page-handler="SaveSettingsFormats" onsubmit="return ktConfirmSubmit(this, '서식을 저장할까요? 이 회원의 기존 서식을 덮어씁니다.');">
+                <p class="muted" style="margin:0 0 8px">한 줄에 서식 하나. 위에서부터 번호 1, 2, 3…으로 저장됩니다.</p>
+                <textarea name="formatText" rows="8" spellcheck="false" style="width:100%; box-sizing:border-box; font-family:Consolas,'D2Coding',monospace">@Model.SettingsFormatText</textarea>
+                <div style="margin-top:8px"><button type="submit">서식 저장</button></div>
+            </form>
+        </div>
+
+        <div class="panel">
+            <h2 style="margin-top:0">베팅금 설정</h2>
+            <div class="actions" style="margin-bottom:10px">
+                <label class="field" style="margin:0">
+                    <span>타입</span>
+                    <select id="ktBetSel" onchange="ktSwitchBet(this.value)">
+                        @foreach (var o in PragmaticBot.Server.Pages.Admin.UserEditModel.BetTypeOptions)
+                        {
+                            <option value="@o.Value" selected="@(o.Value == Model.SettingsBetType)">@o.Label</option>
+                        }
+                    </select>
+                </label>
+                <span class="muted">타입을 바꾸면 새로고침 없이 해당 타입의 금액을 보여줍니다.</span>
+            </div>
+            <form method="post" asp-page-handler="SaveSettingsBetAmounts" onsubmit="return ktConfirmSubmit(this, '이 타입의 베팅금을 저장할까요? 해당 타입의 기존 금액을 덮어씁니다.');">
+                <input type="hidden" name="settingsBetType" id="ktBetHidden" value="@Model.SettingsBetType" />
+                <p class="muted" style="margin:0 0 8px">한 줄에 <b>번호=금액</b> (필요 시 <b>번호=금액,방식</b>). 예: <span class="mono">1=10000</span></p>
+                <textarea name="betText" id="ktBetArea" rows="8" spellcheck="false" style="width:100%; box-sizing:border-box; font-family:Consolas,'D2Coding',monospace">@Model.SettingsBetText</textarea>
+                <div style="margin-top:8px"><button type="submit"><span id="ktBetLabel">@Model.BetTypeLabel(Model.SettingsBetType)</span> 베팅금 저장</button></div>
+            </form>
+        </div>
+
+        <style>
+            .mx-grid { border-collapse: collapse; font-size: 12px; }
+            .mx-grid th, .mx-grid td { border: 1px solid var(--line); padding: 0; text-align: center; }
+            .mx-grid thead th { background: var(--panel-2); color: var(--muted); padding: 3px 6px; position: sticky; top: 0; z-index: 1; }
+            .mx-grid tbody th { background: var(--panel-2); color: var(--muted); padding: 2px 8px; }
+            .mx-grid input { border: 0; background: transparent; color: var(--ink); padding: 4px; text-align: right; font-family: Consolas, 'D2Coding', monospace; box-sizing: border-box; }
+            .mx-grid input.mx-c { width: 76px; }
+            .mx-grid input.mx-r { width: 84px; }
+            .mx-grid input:focus { outline: 2px solid var(--accent); outline-offset: -2px; background: #0c1120; }
+        </style>
+        <div class="panel">
+            <h2 style="margin-top:0">행렬 설정</h2>
+            <div class="actions" style="margin-bottom:10px">
+                <label class="field" style="margin:0">
+                    <span>행렬 타입</span>
+                    <select id="ktMxSel" onchange="ktSwitchMx(this.value)">
+                        @foreach (var o in PragmaticBot.Server.Pages.Admin.UserEditModel.MatrixTypeOptions)
+                        {
+                            <option value="@o.Value" selected="@(o.Value == Model.SettingsMatrixType)">@o.Label</option>
+                        }
+                    </select>
+                </label>
+                <span class="muted">타입을 바꾸면 새로고침 없이 해당 타입의 셀·행규칙을 보여줍니다.</span>
+            </div>
+            <form method="post" asp-page-handler="SaveSettingsMatrix" onsubmit="return ktConfirmSubmit(this, '이 타입의 행렬(셀·행규칙)을 저장할까요? 기존 값을 덮어씁니다.');">
+                <input type="hidden" name="settingsMatrixType" id="ktMxHidden" value="@Model.SettingsMatrixType" />
+
+                <p class="muted" style="margin:0 0 6px">셀 금액 — 차(가로줄)별 단계. 빈 칸은 그 단계 없음, 0은 결과만 보고 진행.</p>
+                <div class="table-wrap" style="max-height:360px; overflow:auto">
+                    <table class="mx-grid">
+                        <thead>
+                            <tr><th>차</th>@for (int c = 1; c <= 20; c++) { <th>@c</th>}</tr>
+                        </thead>
+                        <tbody>
+                        @for (int r = 1; r <= 15; r++)
+                        {
+                            <tr>
+                                <th>@r</th>
+                                @for (int c = 1; c <= 20; c++)
+                                {
+                                    <td><input type="text" class="mx-c" id="c_@(r)_@(c)" name="c_@(r)_@(c)" value="@Model.MxCell(r, c)" autocomplete="off" /></td>
+                                }
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+
+                <p class="muted" style="margin:14px 0 6px">행 규칙 — 규칙이 필요한 차만 입력. (달랑은 스위칭행렬·달랑행렬에서 사용)</p>
+                <div class="table-wrap">
+                    <table class="mx-grid">
+                        <thead>
+                            <tr><th>차</th><th>당첨갯수</th><th>이동차수</th><th>달랑</th><th>쉬는분</th><th>1차상한</th></tr>
+                        </thead>
+                        <tbody>
+                        @for (int r = 1; r <= 15; r++)
+                        {
+                            <tr>
+                                <th>@r</th>
+                                <td><input type="text" class="mx-r" id="w_@r" name="w_@r" value="@Model.MxRule(r, 0)" autocomplete="off" /></td>
+                                <td><input type="text" class="mx-r" id="t_@r" name="t_@r" value="@Model.MxRule(r, 1)" autocomplete="off" /></td>
+                                <td style="text-align:center"><input type="checkbox" id="m_@r" name="m_@r" value="1" @(Model.MxRule(r, 2) == "1" ? "checked" : "") /></td>
+                                <td><input type="text" class="mx-r" id="rm_@r" name="rm_@r" value="@Model.MxRule(r, 3)" autocomplete="off" /></td>
+                                <td><input type="text" class="mx-r" id="cap_@r" name="cap_@r" value="@Model.MxRule(r, 4)" autocomplete="off" /></td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="margin-top:12px"><button type="submit"><span class="ktMxLabel">@Model.MatrixTypeLabel(Model.SettingsMatrixType)</span> 행렬 저장</button></div>
+            </form>
+        </div>
+
+        <script>
+            (function () {
+                var betText = @Html.Raw(Json.Serialize(Model.BetTextByType));
+                var betLabels = @Html.Raw(Json.Serialize(Model.BetTypeOptionsMap));
+                var mxCellGrid = @Html.Raw(Json.Serialize(Model.MatrixCellGrid));
+                var mxRuleGrid = @Html.Raw(Json.Serialize(Model.MatrixRuleGrid));
+                var mxLabels = @Html.Raw(Json.Serialize(Model.MatrixTypeOptionsMap));
+                window.ktSwitchBet = function (v) {
+                    document.getElementById('ktBetArea').value = betText[v] || '';
+                    document.getElementById('ktBetHidden').value = v;
+                    document.getElementById('ktBetLabel').textContent = betLabels[v] || ('타입' + v);
+                };
+                window.ktSwitchMx = function (v) {
+                    var cg = mxCellGrid[v] || {};
+                    for (var r = 1; r <= 15; r++) {
+                        for (var c = 1; c <= 20; c++) {
+                            var el = document.getElementById('c_' + r + '_' + c);
+                            if (el) el.value = cg[r + '_' + c] || '';
+                        }
+                    }
+                    var rg = mxRuleGrid[v] || {};
+                    for (var r2 = 1; r2 <= 15; r2++) {
+                        var a = rg[r2] || ['', '', '', '', ''];
+                        var w = document.getElementById('w_' + r2); if (w) w.value = a[0] || '';
+                        var tg = document.getElementById('t_' + r2); if (tg) tg.value = a[1] || '';
+                        var m = document.getElementById('m_' + r2); if (m) m.checked = (a[2] === '1');
+                        var rm = document.getElementById('rm_' + r2); if (rm) rm.value = a[3] || '';
+                        var cap = document.getElementById('cap_' + r2); if (cap) cap.value = a[4] || '';
+                    }
+                    document.getElementById('ktMxHidden').value = v;
+                    document.querySelectorAll('.ktMxLabel').forEach(function (el) { el.textContent = mxLabels[v] || ('행렬' + v); });
+                };
+            })();
+        </script>
+
+        <div class="panel">
+            <h2 style="margin-top:0">예외서식 설정</h2>
+            <form method="post" asp-page-handler="SaveSettingsException" onsubmit="return ktConfirmSubmit(this, '예외서식을 저장할까요? 기존 예외서식을 덮어씁니다.');">
+                <p class="muted" style="margin:0 0 8px">한 줄에 예외서식 하나. 위에서부터 번호 1, 2, 3…으로 저장됩니다.</p>
+                <textarea name="exceptionText" rows="6" spellcheck="false" style="width:100%; box-sizing:border-box; font-family:Consolas,'D2Coding',monospace">@Model.SettingsExceptionText</textarea>
+                <div style="margin-top:8px"><button type="submit">예외서식 저장</button></div>
+            </form>
+        </div>
+
+        <div class="panel">
+            <h2 style="margin-top:0">방게이트 서식 설정</h2>
+            <form method="post" asp-page-handler="SaveSettingsRoomGate" onsubmit="return ktConfirmSubmit(this, '방게이트 서식을 저장할까요? 기존 서식을 덮어씁니다.');">
+                <p class="muted" style="margin:0 0 8px">각 칸에 한 줄 = 서식 하나. <b>열기(진입 허용)</b>와 <b>닫기(진입 중단)</b> 서식을 따로 입력합니다.</p>
+                <div class="row">
+                    <label class="field"><span>열기(On) 서식</span>
+                        <textarea name="onText" rows="6" spellcheck="false" style="width:100%; box-sizing:border-box; font-family:Consolas,'D2Coding',monospace">@Model.SettingsRoomGateOnText</textarea>
+                    </label>
+                    <label class="field"><span>닫기(Off) 서식</span>
+                        <textarea name="offText" rows="6" spellcheck="false" style="width:100%; box-sizing:border-box; font-family:Consolas,'D2Coding',monospace">@Model.SettingsRoomGateOffText</textarea>
+                    </label>
+                </div>
+                <div style="margin-top:8px"><button type="submit">방게이트 서식 저장</button></div>
+            </form>
+        </div>
+
+        <div class="panel">
+            <h2 style="margin-top:0">한도 설정</h2>
+            <form method="post" asp-page-handler="SaveSettingsLimits" onsubmit="return ktConfirmSubmit(this, '한도 설정을 저장할까요?');">
+                <div class="row">
+                    <label class="field"><span>상한 방식</span>
+                        <select name="upperLimitMode">
+                            <option value="0" selected="@((Model.SettingsLimits?.UpperLimitMode ?? 0) == 0)">퍼센트(%)</option>
+                            <option value="1" selected="@((Model.SettingsLimits?.UpperLimitMode ?? 0) == 1)">금액(원)</option>
+                        </select>
+                    </label>
+                    <label class="field"><span>상한 퍼센트(%)</span><input type="number" step="0.01" name="upperLimitPercent" value="@(Model.SettingsLimits?.UpperLimitPercent)" /></label>
+                    <label class="field"><span>상한 목표금액(원)</span><input type="number" step="1" name="targetProfitAmount" value="@(Model.SettingsLimits?.TargetProfitAmount)" /></label>
+                    <label class="field"><span>하한 퍼센트(%)</span><input type="number" step="0.01" name="lowerLimitPercent" value="@(Model.SettingsLimits?.LowerLimitPercent)" /></label>
+                    <label class="field"><span>동시 베팅 방 수(비우면 무제한)</span><input type="number" step="1" name="maxActiveBettingRooms" value="@(Model.SettingsLimits?.MaxActiveBettingRooms)" /></label>
+                    <label class="field"><span>휴식 간격(분)</span><input type="number" step="1" name="restIntervalMinutes" value="@(Model.SettingsLimits?.RestIntervalMinutes)" /></label>
+                    <label class="field"><span>사이클 횟수</span><input type="number" step="1" name="sessionCount" value="@(Model.SettingsLimits?.SessionCount)" /></label>
+                </div>
+                <div class="actions" style="margin:6px 0 14px">
+                    <label class="checks"><input type="checkbox" name="isUpperLimitEnabled" value="true" @(Model.SettingsLimits?.IsUpperLimitEnabled == true ? "checked" : "") /> 상한 사용</label>
+                    <label class="checks"><input type="checkbox" name="isLowerLimitEnabled" value="true" @(Model.SettingsLimits?.IsLowerLimitEnabled == true ? "checked" : "") /> 하한 사용</label>
+                    <label class="checks"><input type="checkbox" name="isTargetCycleEnabled" value="true" @(Model.SettingsLimits?.IsTargetCycleEnabled == true ? "checked" : "") /> 목표 사이클 사용</label>
+                </div>
+                <button type="submit">한도 저장</button>
+            </form>
+        </div>
+
+        <div class="panel">
+            <h2 style="margin-top:0">방 쿨다운 설정</h2>
+            <form method="post" asp-page-handler="SaveSettingsCooldown" onsubmit="return ktConfirmSubmit(this, '방 쿨다운 설정을 저장할까요?');">
+                <div class="row">
+                    <label class="field"><span>연속 손실 기준(회)</span><input type="number" step="1" name="lossThreshold" value="@(Model.SettingsCooldown?.LossThreshold ?? 0)" /></label>
+                    <label class="field"><span>쿨다운(분)</span><input type="number" step="1" name="cooldownMinutes" value="@(Model.SettingsCooldown?.CooldownMinutes ?? 0)" /></label>
+                </div>
+                <div class="actions" style="margin:6px 0 14px">
+                    <label class="checks"><input type="checkbox" name="isEnabled" value="true" @(Model.SettingsCooldown?.IsEnabled == true ? "checked" : "") /> 방 쿨다운 사용</label>
+                </div>
+                <button type="submit">쿨다운 저장</button>
+            </form>
+        </div>
+
+        <div class="panel">
+            <h2 style="margin-top:0">전략 체인</h2>
+            @if (Model.SettingsChains.Count == 0)
+            {
+                <div class="empty">등록된 전략 체인이 없습니다. 봇에서 만들면 여기에 나타납니다.</div>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>이름</th><th>상태</th><th>스텝(전략 순서)</th><th style="width:170px"></th></tr></thead>
+                        <tbody>
+                        @foreach (var ch in Model.SettingsChains)
+                        {
+                            <tr>
+                                <td><strong>@ch.Name</strong></td>
+                                <td>@if (ch.IsActive) { <span class="pill on">활성</span> } else { <span class="pill off">비활성</span> }</td>
+                                <td class="mono" style="font-size:12px">@string.Join("  →  ", ch.Steps.OrderBy(s => s.Order).Select(s => Model.StrategyTypeLabel(s.StrategyType)))</td>
+                                <td>
+                                    <div class="actions actions-inline">
+                                        @if (ch.IsActive)
+                                        {
+                                            <form method="post" asp-page-handler="DeactivateChain" onsubmit="return ktConfirmSubmit(this, '이 전략 체인을 비활성화할까요?');">
+                                                <input type="hidden" name="chainId" value="@ch.Id" />
+                                                <button type="submit" class="btn small ghost">비활성화</button>
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            <form method="post" asp-page-handler="ActivateChain" onsubmit="return ktConfirmSubmit(this, '이 전략 체인을 활성화할까요?');">
+                                                <input type="hidden" name="chainId" value="@ch.Id" />
+                                                <button type="submit" class="btn small">활성화</button>
+                                            </form>
+                                        }
+                                        <form method="post" asp-page-handler="DeleteChain" onsubmit="return ktConfirmSubmit(this, '이 전략 체인을 삭제할까요?');">
+                                            <input type="hidden" name="chainId" value="@ch.Id" />
+                                            <button type="submit" class="btn small danger">삭제</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+                <p class="muted" style="margin-bottom:0">스텝(전략 순서·전환 조건) 편집은 봇에서 합니다. 여기서는 조회·활성화·삭제만 가능합니다.</p>
+            }
+        </div>
+    }
+
     <div class="panel">
         <h2 style="margin-top:0">사이트 슬롯</h2>
         @if (Model.Sites.Count == 0)

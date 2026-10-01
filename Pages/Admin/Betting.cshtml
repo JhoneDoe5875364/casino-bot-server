@@ -153,7 +153,14 @@
     <input type="hidden" name="p" value="@Model.PageNo" />
     <div class="actions" style="margin-bottom:12px">
         <button type="submit" asp-page-handler="Delete" class="small danger"
-                onclick="return confirm('체크한 베팅 내역을 삭제합니다. 집계에서도 빠집니다. 계속할까요?');">선택 삭제</button>
+                onclick="return ktConfirmClick(this, '체크한 베팅 내역을 삭제합니다. 집계에서도 빠집니다. 계속할까요?');">선택 삭제</button>
+        <button type="submit" asp-page-handler="DeleteFiltered" class="small danger"
+                onclick="return ktConfirmClick(this, '현재 조회 조건에 맞는 베팅 내역 @Model.TotalCount.ToString("N0")건을 모두 삭제합니다. 되돌릴 수 없습니다. 계속할까요?');">조회 결과 전체 삭제</button>
+        @if (Model.IsOwner)
+        {
+            <button type="submit" asp-page-handler="Purge" class="small ghost"
+                    onclick="return ktConfirmClick(this, '30일 이전 베팅 내역을 삭제합니다. 계속할까요?');">30일 이전 정리</button>
+        }
     </div>
     <div class="table-wrap">
         <table>
@@ -198,7 +205,7 @@
                     <td>
                         <button type="submit" asp-page-handler="DeleteOne" name="id" value="@b.Id"
                                 class="small danger" style="white-space:nowrap"
-                                onclick="return confirm('이 내역을 삭제할까요?');">삭제</button>
+                                onclick="return ktConfirmClick(this, '이 내역을 삭제할까요?');">삭제</button>
                     </td>
                 </tr>
             }

@@ -9,7 +9,7 @@ namespace PragmaticBot.Server.Pages.Admin;
 public class UsersModel(AppDbContext db, HierarchyService tree, SessionNotifier notifier) : AdminPageModel(db, tree)
 {
     /// <summary>One row of the org chart, already flattened for rendering.</summary>
-    public record Node(User User, int Depth, int MemberCount, int BetCount, bool Online);
+    public record Node(User User, int Depth, int MemberCount, int BetCount, bool Online, string? ParentName);
 
     public List<Node> Rows { get; set; } = [];
     public List<User> ParentChoices { get; set; } = [];
@@ -81,7 +81,7 @@ public class UsersModel(AppDbContext db, HierarchyService tree, SessionNotifier 
     //    끝나면 목록으로 돌아온다. 크로스 페이지 폼 POST가 라우트 문제로 안 돼, 같은 페이지 핸들러로 처리한다.
 
     public async Task<IActionResult> OnPostSaveAsync(
-        int id, string displayName, DateTime? expirationDate, bool isActive = false, bool diagnosticLogging = false,
+        int id, string displayName, DateTime? expirationDate, bool diagnosticLogging = false,
         bool useProviderPragmatic = false, bool useProviderEvolution = false, string username = "")
     {
         var target = await LoadManageableAsync(id);
@@ -99,10 +99,9 @@ public class UsersModel(AppDbContext db, HierarchyService tree, SessionNotifier 
             }
         }
 
-        var wasActive = target.IsActive;
+        // 활성/비활성은 별도 토글 버튼(OnPostToggleActive)이 담당한다. 여기선 건드리지 않는다.
         target.DisplayName = string.IsNullOrWhiteSpace(displayName) ? target.Username : displayName.Trim();
         target.ExpirationDate = expirationDate.HasValue ? KoreaTime.DateToUtc(expirationDate.Value.Date.AddDays(1).AddSeconds(-1)) : (DateTime?)null;
-        target.IsActive = isActive;
         target.DiagnosticLogging = diagnosticLogging;
 
         var owner = target.ParentId is { } pid ? await Db.Users.FindAsync(pid) : null;
@@ -113,9 +112,22 @@ public class UsersModel(AppDbContext db, HierarchyService tree, SessionNotifier 
         target.Providers = HierarchyService.GrantableProviders(ceiling, wantedProviders);
 
         await Db.SaveChangesAsync();
-        if (wasActive && !isActive) await DeactivateBranchAsync(target);
-
         TempData["Ok"] = $"{target.Username}: 저장했습니다.";
+        return RedirectToPage();
+    }
+
+    /// <summary>활성/비활성 토글(목록 외부 버튼). 비활성화 시 하위 조직까지 봇 종료.</summary>
+    public async Task<IActionResult> OnPostToggleActiveAsync(int id, bool active)
+    {
+        var target = await LoadManageableAsync(id);
+        if (target is null) return Denied();
+
+        var wasActive = target.IsActive;
+        target.IsActive = active;
+        await Db.SaveChangesAsync();
+        if (wasActive && !active) await DeactivateBranchAsync(target);
+
+        TempData["Ok"] = $"{target.Username}: {(active ? "활성화" : "비활성화")}했습니다.";
         return RedirectToPage();
     }
 
@@ -283,12 +295,16 @@ public class UsersModel(AppDbContext db, HierarchyService tree, SessionNotifier 
             .GroupBy(id => id)
             .ToDictionary(g => g.Key, g => g.Count());
 
+        // 상위 조직 이름 표시용 — 보이는 목록 안에서 부모 아이디를 이름으로 해석한다.
+        var nameById = all.ToDictionary(u => u.Id, u => u.Username);
+
         Rows = all.Select(u => new Node(
             u,
             Math.Max(0, Depth(u.TreePath) - rootDepth),
             u.Role == UserRole.Member ? 0 : memberCounts.GetValueOrDefault(u.Id),
             betCounts.GetValueOrDefault(u.Id),
-            u.CurrentSessionId is not null && u.LastHeartbeatUtc >= since)).ToList();
+            u.CurrentSessionId is not null && u.LastHeartbeatUtc >= since,
+            u.ParentId is { } pid && nameById.TryGetValue(pid, out var pn) ? pn : null)).ToList();
     }
 
     static int Depth(string treePath) =>

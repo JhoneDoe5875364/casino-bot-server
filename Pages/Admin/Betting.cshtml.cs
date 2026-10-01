@@ -320,4 +320,70 @@ public class BettingModel(AppDbContext db, HierarchyService tree) : AdminPageMod
         TempData["Ok"] = $"{removed:N0}건을 삭제했습니다.";
         return RedirectToPage(RouteValues());
     }
+
+    /// <summary>현재 조회 조건(조직/회원/기간/결과/가상)에 맞는 베팅 내역 전체를 삭제한다(내 산하만).</summary>
+    public async Task<IActionResult> OnPostDeleteFilteredAsync()
+    {
+        var q = await BuildFilteredBetQueryAsync();
+        var removed = await DeleteBetsInBatchesAsync(q);
+        TempData["Ok"] = $"조건에 맞는 베팅 내역 {removed:N0}건을 삭제했습니다.";
+        return RedirectToPage(RouteValues(1));
+    }
+
+    /// <summary>30일 이전 베팅 내역 정리(본사 전용).</summary>
+    public async Task<IActionResult> OnPostPurgeAsync()
+    {
+        if (!IsOwner)
+        {
+            TempData["Err"] = "베팅 내역 정리는 본사 계정만 할 수 있습니다.";
+            return RedirectToPage(RouteValues());
+        }
+        var cutoff = DateTime.UtcNow.AddDays(-30);
+        var removed = await DeleteBetsInBatchesAsync(Db.BettingHistories.Where(b => b.CreatedUtc < cutoff));
+        TempData["Ok"] = $"{removed:N0}건의 오래된 베팅 내역을 삭제했습니다.";
+        return RedirectToPage(RouteValues());
+    }
+
+    /// <summary>목록 필터와 동일한 조건으로 삭제 대상 쿼리를 만든다(권한 범위 안에서만).</summary>
+    async Task<IQueryable<BettingHistory>> BuildFilteredBetQueryAsync()
+    {
+        var visible = await Tree.VisibleUsers(Me).AsNoTracking().ToListAsync();
+        var allowed = visible.Select(u => u.Id).ToHashSet();
+        if (BranchOf is { } branchId && visible.FirstOrDefault(u => u.Id == branchId) is { } head)
+        {
+            var prefix = HierarchyService.SubtreePrefixOf(head);
+            allowed = visible.Where(u => u.Id == head.Id || u.TreePath.StartsWith(prefix)).Select(u => u.Id).ToHashSet();
+        }
+        if (UserId is { } uid && allowed.Contains(uid))
+            allowed = [uid];
+
+        var ids = allowed.ToList();
+        var q = Db.BettingHistories.Where(b => ids.Contains(b.UserId));
+        if (!IncludeVirtual)
+            q = q.Where(b => !b.IsVirtual);
+        if (From is { } from)
+            q = q.Where(b => b.CreatedUtc >= PragmaticBot.Server.Services.KoreaTime.DateToUtc(from.Date));
+        if (To is { } to)
+            q = q.Where(b => b.CreatedUtc < PragmaticBot.Server.Services.KoreaTime.DateToUtc(to.Date.AddDays(1)));
+        if (!string.IsNullOrEmpty(Status))
+            q = q.Where(b => b.Status == Status);
+        return q;
+    }
+
+    /// <summary>PK(Id) 순서로 배치 삭제(큰 표에서 타임아웃 방지). BettingAllocation은 FK Cascade로 자동 정리.</summary>
+    async Task<int> DeleteBetsInBatchesAsync(IQueryable<BettingHistory> q, int batchSize = 5000)
+    {
+        Db.Database.SetCommandTimeout(180);
+        var total = 0;
+        while (true)
+        {
+            var ids = await q.OrderBy(b => b.Id).Select(b => b.Id).Take(batchSize).ToListAsync();
+            if (ids.Count == 0)
+                break;
+            total += await Db.BettingHistories.Where(b => ids.Contains(b.Id)).ExecuteDeleteAsync();
+            if (ids.Count < batchSize)
+                break;
+        }
+        return total;
+    }
 }

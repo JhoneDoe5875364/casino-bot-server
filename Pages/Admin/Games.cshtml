@@ -88,7 +88,7 @@
                                     <input type="hidden" name="p" value="@Model.PageNo" />
                                     <button type="submit" class="small ghost">@(g.IsEnabled ? "숨기기" : "노출")</button>
                                 </form>
-                                <form method="post" asp-page-handler="Delete" onsubmit="return confirm('이 게임을 삭제할까요?');">
+                                <form method="post" asp-page-handler="Delete" onsubmit="return ktConfirmSubmit(this, '이 게임을 삭제할까요?');">
                                     <input type="hidden" name="id" value="@g.Id" />
                                     <input type="hidden" name="provider" value="@Model.Provider" />
                                     <input type="hidden" name="size" value="@Model.PageSize" />

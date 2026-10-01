@@ -3,19 +3,53 @@
 @{
     ViewData["Title"] = "로그인";
 }
-<form method="post" class="panel login-box">
-    <h1>KingTigerBet 관리</h1>
+<form method="post" class="kt-login-card">
+    <div class="kt-login-head">
+        <h1 class="kt-login-title"><span class="brand-name">KingTigerBet</span> 관리</h1>
+        <div class="kt-login-underline"></div>
+    </div>
+
     @if (!string.IsNullOrEmpty(Model.Error))
     {
         <div class="flash err">@Model.Error</div>
     }
-    <label class="field">
-        <span>관리자 아이디</span>
-        <input type="text" name="Username" value="@Model.Username" autofocus required />
+
+    <label class="kt-lfield">
+        <span class="kt-lfield-label">관리자 아이디</span>
+        <span class="kt-lfield-box">
+            <svg class="kt-lfield-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-3.6 3.6-6 8-6s8 2.4 8 6"/></svg>
+            <input type="text" name="Username" value="@Model.Username" placeholder="admin" autocomplete="username" autofocus required />
+        </span>
     </label>
-    <label class="field">
-        <span>비밀번호</span>
-        <input type="password" name="Password" required />
+
+    <label class="kt-lfield">
+        <span class="kt-lfield-label">비밀번호</span>
+        <span class="kt-lfield-box">
+            <svg class="kt-lfield-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            <input type="password" id="ktPw" name="Password" autocomplete="current-password" required />
+            <button type="button" class="kt-lfield-eye" id="ktPwToggle" aria-label="비밀번호 표시" title="비밀번호 표시">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+        </span>
     </label>
-    <button type="submit">로그인</button>
+
+    <button type="submit" class="kt-login-btn">로그인</button>
 </form>
+
+@section Scripts {
+<script>
+    (function () {
+        var pw = document.getElementById('ktPw');
+        var btn = document.getElementById('ktPwToggle');
+        if (!pw || !btn) return;
+        btn.addEventListener('click', function () {
+            var show = pw.type === 'password';
+            pw.type = show ? 'text' : 'password';
+            btn.classList.toggle('on', show);
+            btn.setAttribute('title', show ? '비밀번호 숨기기' : '비밀번호 표시');
+            btn.setAttribute('aria-label', show ? '비밀번호 숨기기' : '비밀번호 표시');
+            pw.focus();
+        });
+    })();
+</script>
+}

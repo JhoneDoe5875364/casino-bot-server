@@ -32,8 +32,10 @@ public abstract class AdminPageModel(AppDbContext db, HierarchyService tree) : P
             ? await Db.Users.FirstOrDefaultAsync(u => u.Id == userId)
             : null;
 
-        // Signed in but the account was deleted, demoted or disabled since the cookie was issued.
-        if (me is null || me.Role == UserRole.Member || !me.IsActive)
+        // Signed in but the account was deleted, demoted, disabled or expired since the cookie was issued.
+        // 만료 검사까지 여기서 하므로, 기간이 지난 관리 계정은 모든 화면(계정 생성 포함)에서 즉시 로그아웃된다.
+        if (me is null || me.Role == UserRole.Member || !me.IsActive
+            || (me.ExpirationDate is { } exp && exp < DateTime.UtcNow))
         {
             context.Result = new RedirectToPageResult("/Admin/Logout");
             return;

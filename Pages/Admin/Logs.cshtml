@@ -47,13 +47,13 @@
     <div class="actions" style="margin-bottom:12px">
         <span class="muted">총 @Model.TotalCount.ToString("N0") 건</span>
         <button type="submit" asp-page-handler="Delete" class="small danger"
-                onclick="return confirm('체크한 로그를 삭제합니다. 계속할까요?');">선택 삭제</button>
+                onclick="return ktConfirmClick(this, '체크한 로그를 삭제합니다. 계속할까요?');">선택 삭제</button>
         <button type="submit" asp-page-handler="DeleteFiltered" class="small danger"
-                onclick="return confirm('현재 조회 조건에 맞는 로그 @Model.TotalCount.ToString("N0")건을 모두 삭제합니다. 되돌릴 수 없습니다. 계속할까요?');">조회 결과 전체 삭제</button>
+                onclick="return ktConfirmClick(this, '현재 조회 조건에 맞는 로그 @Model.TotalCount.ToString("N0")건을 모두 삭제합니다. 되돌릴 수 없습니다. 계속할까요?');">조회 결과 전체 삭제</button>
         @if (Model.IsOwner)
         {
             <button type="submit" asp-page-handler="Purge" class="small ghost"
-                    onclick="return confirm('30일 이전 로그를 삭제합니다. 계속할까요?');">30일 이전 정리</button>
+                    onclick="return ktConfirmClick(this, '30일 이전 로그를 삭제합니다. 계속할까요?');">30일 이전 정리</button>
         }
     </div>
     <div class="table-wrap">
@@ -94,7 +94,7 @@
                     <td>
                         <button type="submit" asp-page-handler="DeleteOne" name="id" value="@l.Id"
                                 class="small danger" style="white-space:nowrap"
-                                onclick="return confirm('이 로그를 삭제할까요?');">삭제</button>
+                                onclick="return ktConfirmClick(this, '이 로그를 삭제할까요?');">삭제</button>
                     </td>
                 </tr>
             }

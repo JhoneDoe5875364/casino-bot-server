@@ -14,7 +14,7 @@
 {
     <div class="panel">
         <h2 style="margin-top:0">계정 만들기</h2>
-        <form method="post" asp-page-handler="Create">
+        <form method="post" asp-page-handler="Create" onsubmit="return ktConfirmSubmit(this, '새 계정을 생성할까요?');">
             <div class="row">
                 <label class="field">
                     <span>등급</span>
@@ -94,6 +94,10 @@
                         {
                             <span class="pill warn">나</span>
                         }
+                        @if (n.ParentName is not null)
+                        {
+                            <div class="muted" style="font-size:11px; margin-top:3px; padding-left:@((n.Depth * 22) + 14)px">↑ 상위: @n.ParentName</div>
+                        }
                     </td>
                     <td><span class="pill role-@u.Role.ToString().ToLowerInvariant()">@Model.RoleLabel(u.Role)</span></td>
                     <td>@u.DisplayName</td>
@@ -129,13 +133,29 @@
                         @if (u.Id != Model.Me.Id)
                         {
                             <span class="rowactions">
-                                <button type="button" class="btn small ghost" onclick="ktOpen('manage-@u.Id')">관리</button>
+                                <button type="button" class="btn small ghost" onclick="ktOpen('manage-@u.Id')">계정설정</button>
                                 <button type="button" class="btn small ghost" onclick="ktOpen('extend-@u.Id')">연장</button>
-                                <form method="post" action="/Admin/Users?handler=ForceLogout" style="display:inline" onsubmit="return confirm('@u.Username 세션을 강제 종료할까요?');">
+                                @if (u.IsActive)
+                                {
+                                    <form method="post" action="/Admin/Users?handler=ToggleActive" style="display:inline" onsubmit="return ktConfirmSubmit(this, '@u.Username 을(를) 비활성화하면 하위 봇도 종료됩니다. 계속할까요?');">
+                                        @Html.AntiForgeryToken()<input type="hidden" name="id" value="@u.Id" />
+                                        <input type="hidden" name="active" value="false" />
+                                        <button type="submit" class="btn small" style="background:#c2410c;color:#fff;border:0">비활성화</button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <form method="post" action="/Admin/Users?handler=ToggleActive" style="display:inline" onsubmit="return ktConfirmSubmit(this, '@u.Username 을(를) 활성화할까요?');">
+                                        @Html.AntiForgeryToken()<input type="hidden" name="id" value="@u.Id" />
+                                        <input type="hidden" name="active" value="true" />
+                                        <button type="submit" class="btn small" style="background:#15803d;color:#fff;border:0">활성화</button>
+                                    </form>
+                                }
+                                <form method="post" action="/Admin/Users?handler=ForceLogout" style="display:inline" onsubmit="return ktConfirmSubmit(this, '@u.Username 세션을 강제 종료할까요?');">
                                     @Html.AntiForgeryToken()<input type="hidden" name="id" value="@u.Id" />
-                                    <button type="submit" class="btn small ghost" @(n.Online ? "" : "disabled")>강제 로그아웃</button>
+                                    <button type="submit" class="btn small ghost">강제 로그아웃</button>
                                 </form>
-                                <form method="post" action="/Admin/Users?handler=Delete" style="display:inline" onsubmit="return confirm('@u.Username 계정과 모든 기록을 삭제합니다. 계속할까요?');">
+                                <form method="post" action="/Admin/Users?handler=Delete" style="display:inline" onsubmit="return ktConfirmSubmit(this, '@u.Username 계정과 모든 기록을 삭제합니다. 계속할까요?');">
                                     @Html.AntiForgeryToken()<input type="hidden" name="id" value="@u.Id" />
                                     <button type="submit" class="btn small danger">삭제</button>
                                 </form>
@@ -144,9 +164,9 @@
                             @* ── 관리 모달 ── *@
                             <div class="kt-modal" id="manage-@u.Id">
                                 <div class="kt-box">
-                                    <div class="kt-head"><b>@u.Username 관리</b><button type="button" class="kt-x" onclick="ktClose('manage-@u.Id')">✕</button></div>
+                                    <div class="kt-head"><b>@u.Username 계정설정</b><button type="button" class="kt-x" onclick="ktClose('manage-@u.Id')">✕</button></div>
                                     <div class="kt-body">
-                                        <form method="post" action="/Admin/Users?handler=Save">
+                                        <form method="post" action="/Admin/Users?handler=Save" onsubmit="return ktConfirmSubmit(this, '@u.Username 계정 설정을 저장할까요?');">
                                     @Html.AntiForgeryToken()<input type="hidden" name="id" value="@u.Id" />
                                                     <div class="row">
                                                 <label class="field"><span>아이디 (로그인)</span><input type="text" name="username" value="@u.Username" maxlength="64" autocomplete="off" /></label>
@@ -154,7 +174,6 @@
                                                 <label class="field"><span>만료일 (비우면 무제한)</span><input type="date" name="expirationDate" value="@(PragmaticBot.Server.Services.KoreaTime.Fmt(u.ExpirationDate, "yyyy-MM-dd"))" /></label>
                                             </div>
                                             <div class="actions" style="margin:6px 0 12px">
-                                                <label class="checks"><input type="checkbox" name="isActive" value="true" @(u.IsActive ? "checked" : "") /> 활성</label>
                                                 <label class="checks"><input type="checkbox" name="useProviderPragmatic" value="true" @(u.Providers.HasFlag(GameProviders.PragmaticPlay) ? "checked" : "") /> 프라그마틱</label>
                                                 <label class="checks"><input type="checkbox" name="useProviderEvolution" value="true" @(u.Providers.HasFlag(GameProviders.Evolution) ? "checked" : "") /> 에볼루션</label>
                                                 <label class="checks"><input type="checkbox" name="diagnosticLogging" value="true" @(u.DiagnosticLogging ? "checked" : "") /> 진단 로그</label>
@@ -162,7 +181,7 @@
                                             <button type="submit">저장</button>
                                         </form>
                                         <hr />
-                                        <form method="post" action="/Admin/Users?handler=ResetPassword" class="actions">
+                                        <form method="post" action="/Admin/Users?handler=ResetPassword" class="actions" onsubmit="return ktConfirmSubmit(this, '@u.Username 비밀번호를 변경하면 기존 세션이 종료됩니다. 계속할까요?');">
                                     @Html.AntiForgeryToken()<input type="hidden" name="id" value="@u.Id" />
                                                     <input type="text" name="newPassword" placeholder="새 비밀번호" required minlength="4" style="width:180px" />
                                             <button type="submit" class="ghost">비밀번호 변경</button>
@@ -171,7 +190,7 @@
                                         @if (moveTargets.Count > 0)
                                         {
                                             <hr />
-                                            <form method="post" action="/Admin/Users?handler=Move" class="actions">
+                                            <form method="post" action="/Admin/Users?handler=Move" class="actions" onsubmit="return ktConfirmSubmit(this, '@u.Username 소속을 이동할까요? 하위 조직도 함께 이동됩니다.');">
                                     @Html.AntiForgeryToken()<input type="hidden" name="id" value="@u.Id" />
                                                             <select name="newParentId" style="max-width:280px">
                                                     @foreach (var p in moveTargets)
@@ -194,7 +213,7 @@
                                     <div class="kt-head"><b>@u.Username 사용기간 연장</b><button type="button" class="kt-x" onclick="ktClose('extend-@u.Id')">✕</button></div>
                                     <div class="kt-body">
                                         <p class="muted" style="margin-top:0">현재 만료일: <b>@(PragmaticBot.Server.Services.KoreaTime.Fmt(u.ExpirationDate, "yyyy-MM-dd") ?? "무제한")</b></p>
-                                        <form method="post" action="/Admin/Users?handler=Extend" class="actions">
+                                        <form method="post" action="/Admin/Users?handler=Extend" class="actions" onsubmit="return ktConfirmSubmit(this, '@u.Username 만료일을 변경할까요?');">
                                     @Html.AntiForgeryToken()<input type="hidden" name="id" value="@u.Id" />
                                                     <input type="hidden" name="mode" value="months" />
                                             <span>개월수</span>
@@ -203,7 +222,7 @@
                                             <span class="muted">아직 유효하면 현재 만료일 뒤에 이어붙입니다.</span>
                                         </form>
                                         <hr />
-                                        <form method="post" action="/Admin/Users?handler=Extend" class="actions">
+                                        <form method="post" action="/Admin/Users?handler=Extend" class="actions" onsubmit="return ktConfirmSubmit(this, '@u.Username 만료일을 변경할까요?');">
                                     @Html.AntiForgeryToken()<input type="hidden" name="id" value="@u.Id" />
                                                     <input type="hidden" name="mode" value="date" />
                                             <span>날짜 지정</span>
@@ -211,7 +230,7 @@
                                             <button type="submit">날짜로 설정</button>
                                         </form>
                                         <hr />
-                                        <form method="post" action="/Admin/Users?handler=Extend" class="actions" onsubmit="return confirm('@u.Username 을(를) 무제한으로 변경할까요?');">
+                                        <form method="post" action="/Admin/Users?handler=Extend" class="actions" onsubmit="return ktConfirmSubmit(this, '@u.Username 을(를) 무제한으로 변경할까요?');">
                                     @Html.AntiForgeryToken()<input type="hidden" name="id" value="@u.Id" />
                                                     <input type="hidden" name="unlimited" value="true" />
                                             <button type="submit" class="ghost">무제한으로 변경</button>
@@ -227,24 +246,3 @@
         </table>
     </div>
 </div>
-
-<style>
-    .rowactions { display:inline-flex; gap:6px; flex-wrap:wrap; align-items:center; }
-    .kt-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:1000; align-items:flex-start; justify-content:center; overflow:auto; padding:48px 12px; }
-    .kt-modal.open { display:flex; }
-    .kt-box { background:#12203a; border:1px solid #29406b; border-radius:10px; max-width:640px; width:100%; box-shadow:0 12px 44px rgba(0,0,0,.55); }
-    .kt-head { display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-bottom:1px solid #29406b; font-size:16px; }
-    .kt-x { background:none; border:none; color:#9fb0cc; cursor:pointer; font-size:18px; line-height:1; }
-    .kt-body { padding:16px 18px; }
-    .kt-body hr { border:none; border-top:1px solid #24365c; margin:14px 0; }
-</style>
-<script>
-    function ktOpen(id){ var m=document.getElementById(id); if(m){ m.classList.add('open'); } }
-    function ktClose(id){ var m=document.getElementById(id); if(m){ m.classList.remove('open'); } }
-    document.addEventListener('click', function(e){
-        if (e.target && e.target.classList && e.target.classList.contains('kt-modal')) { e.target.classList.remove('open'); }
-    });
-    document.addEventListener('keydown', function(e){
-        if (e.key === 'Escape') { document.querySelectorAll('.kt-modal.open').forEach(function(m){ m.classList.remove('open'); }); }
-    });
-</script>

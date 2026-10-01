@@ -134,12 +134,14 @@ builder.Services
                     var db = ctx.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
                     return await db.Users.AsNoTracking()
                         .Where(u => u.Id == uid)
-                        .Select(u => new AuthSnapshot(u.IsActive, u.ExpirationDate, u.CurrentSessionId))
+                        .Select(u => new AuthSnapshot(u.IsActive, u.ExpirationDate, u.CurrentSessionId, u.Role))
                         .FirstOrDefaultAsync();
                 });
 
                 if (snap is null) { ctx.Fail("계정을 찾을 수 없습니다."); return; }
                 if (!snap.IsActive) { ctx.Fail("비활성화된 계정입니다."); return; }
+                // 봇은 회원 계정만 사용 가능. 관리 계정으로 발급된(또는 사용 중 승급된) 토큰이면 즉시 거부.
+                if (snap.Role != UserRole.Member) { ctx.Fail("봇 사용 권한이 없는 계정입니다."); return; }
                 if (snap.ExpirationDate is { } exp && exp < DateTime.UtcNow) { ctx.Fail("사용 기간이 만료되었습니다."); return; }
                 // 세션 축출(다른 기기 로그인) 확인. 하위호환: CurrentSessionId 가 비면 검사 생략.
                 if (!string.IsNullOrEmpty(snap.CurrentSessionId)

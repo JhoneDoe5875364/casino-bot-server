@@ -8,7 +8,7 @@
 
 <div class="panel">
     <h2 style="margin-top:0">새 공지</h2>
-    <form method="post" asp-page-handler="Create">
+    <form method="post" asp-page-handler="Create" onsubmit="return ktConfirmSubmit(this, '공지를 등록할까요?');">
         <label class="field">
             <span>내용</span>
             <textarea name="Message" required maxlength="2000" placeholder="봇 사용자에게 보여줄 내용"></textarea>
@@ -55,7 +55,7 @@
                                 <input type="hidden" name="id" value="@n.Id" />
                                 <button type="submit" class="small ghost">@(n.IsActive ? "내리기" : "게시")</button>
                             </form>
-                            <form method="post" asp-page-handler="Delete" onsubmit="return confirm('삭제할까요?');">
+                            <form method="post" asp-page-handler="Delete" onsubmit="return ktConfirmSubmit(this, '삭제할까요?');">
                                 <input type="hidden" name="id" value="@n.Id" />
                                 <button type="submit" class="small danger">삭제</button>
                             </form>

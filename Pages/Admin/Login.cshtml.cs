@@ -33,6 +33,13 @@ public class LoginModel(AppDbContext db) : PageModel
             return Page();
         }
 
+        // 사용 기간이 지난 관리 계정은 로그인 자체를 막는다. (봇 로그인과 동일한 만료 정책)
+        if (user.ExpirationDate is { } exp && exp < DateTime.UtcNow)
+        {
+            Error = $"사용 기간이 만료된 계정입니다. (만료일: {KoreaTime.Fmt(exp, "yyyy-MM-dd")}) 본사에 문의하세요.";
+            return Page();
+        }
+
         var identity = new ClaimsIdentity(
         [
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),

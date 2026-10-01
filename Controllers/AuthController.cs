@@ -27,6 +27,11 @@ public class AuthController(
         if (user is null || !PasswordHasher.Verify(request.Password, user.PasswordHash))
             return Fail(StatusCodes.Status401Unauthorized, "사용자명 또는 비밀번호가 올바르지 않습니다.");
 
+        // 봇은 회원(Member) 계정만 돌릴 수 있다. 총판·대리점·본사 같은 관리 계정은 봇 로그인 불가.
+        // (관리자페이지 로그인이 Role > Member 로 회원을 막는 것과 대칭)
+        if (user.Role != UserRole.Member)
+            return Fail(StatusCodes.Status403Forbidden, "관리 계정으로는 봇에 로그인할 수 없습니다. 회원 계정으로 로그인하세요.");
+
         if (!user.IsActive)
             return Fail(StatusCodes.Status401Unauthorized, "비활성화된 계정입니다. 관리자에게 문의하세요.");
 

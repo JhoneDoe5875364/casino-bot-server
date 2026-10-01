@@ -15,7 +15,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>@ViewData["Title"] · KingTigerBet 관리</title>
-    <link rel="stylesheet" href="~/css/admin.css" />
+    <link rel="stylesheet" href="~/css/admin.css" asp-append-version="true" />
 </head>
 <body>
 @if (isAdmin)
@@ -43,16 +43,88 @@
     </header>
 }
 <main class="@(isAdmin ? "shell" : "shell centered")">
-    @if (TempData["Ok"] is string ok)
-    {
-        <div class="flash ok">@ok</div>
-    }
-    @if (TempData["Err"] is string err)
-    {
-        <div class="flash err">@err</div>
-    }
     @RenderBody()
 </main>
+
+@* 결과 알림 토스트 (우상단, 3초 후 또는 클릭 시 사라짐) *@
+<div class="kt-toasts">
+    @if (TempData["Ok"] is string okMsg) { <div class="kt-toast ok"><span class="kt-toast-ico">✓</span><span>@okMsg</span></div> }
+    @if (TempData["Err"] is string errMsg) { <div class="kt-toast err"><span class="kt-toast-ico">!</span><span>@errMsg</span></div> }
+</div>
+
+@* 공용 확인 모달 (브라우저 기본 confirm 대체) *@
+<div class="kt-modal" id="ktConfirmModal">
+    <div class="kt-box" style="max-width:440px">
+        <div class="kt-head"><b>알림</b><button type="button" class="kt-x" onclick="ktConfirmClose(false)">✕</button></div>
+        <div class="kt-body">
+            <p id="ktConfirmMsg" style="margin:0 0 18px; line-height:1.55; white-space:pre-line"></p>
+            <div class="kt-actions">
+                <button type="button" class="btn ghost" onclick="ktConfirmClose(false)">취소</button>
+                <button type="button" class="btn" id="ktConfirmOk" onclick="ktConfirmClose(true)">확인</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    // 공용 모달 열기/닫기 (계정설정·연장 모달용)
+    function ktOpen(id){ var m=document.getElementById(id); if(m){ m.classList.add('open'); } }
+    function ktClose(id){ var m=document.getElementById(id); if(m){ m.classList.remove('open'); } }
+    // 계정설정·연장 모달은 바깥클릭/Esc로 닫되, 확인(알림) 모달은 버튼으로만 닫는다.
+    document.addEventListener('click', function(e){ if(e.target && e.target.classList && e.target.classList.contains('kt-modal') && e.target.id !== 'ktConfirmModal') e.target.classList.remove('open'); });
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape') document.querySelectorAll('.kt-modal.open').forEach(function(m){ if(m.id !== 'ktConfirmModal') m.classList.remove('open'); }); });
+
+    // 커스텀 확인 모달 (브라우저 confirm 대체)
+    var __ktOnOk=null;
+    function ktConfirm(msg, onOk){
+        __ktOnOk=onOk;
+        document.getElementById('ktConfirmMsg').textContent=msg;
+        // 삭제·비활성화·강제종료 등 파괴적 동작은 빨강, 그 외(저장/연장/활성화 등)는 기본색
+        var danger=/삭제|비활성화|강제 종료/.test(msg);
+        var ok=document.getElementById('ktConfirmOk');
+        ok.className = danger ? 'btn danger' : 'btn';
+        document.getElementById('ktConfirmModal').classList.add('open');
+        setTimeout(function(){ ok.focus(); }, 30);
+    }
+    function ktConfirmClose(ok){
+        document.getElementById('ktConfirmModal').classList.remove('open');
+        var cb=__ktOnOk; __ktOnOk=null;
+        if(ok && cb) cb();
+    }
+    // 저장/작동 버튼은 POST 후 리다이렉트(전체 리로드)라 맨 위로 튄다. 제출 직전 스크롤 위치를
+    // 저장하고 새 페이지에서 복원해, 모든 관리자 페이지에서 "맨 위로 튐"을 없앤다.
+    function ktStoreScroll(){ try { sessionStorage.setItem('ktScrollY', String(window.scrollY || window.pageYOffset || 0)); } catch(e){} }
+    (function(){
+        var y = null;
+        try { y = sessionStorage.getItem('ktScrollY'); } catch(e){}
+        if (y !== null) {
+            var doScroll = function(){ window.scrollTo(0, parseInt(y, 10) || 0); };
+            doScroll();
+            window.addEventListener('load', function(){ doScroll(); try { sessionStorage.removeItem('ktScrollY'); } catch(e){} });
+            if (document.readyState === 'complete') { try { sessionStorage.removeItem('ktScrollY'); } catch(e){} }
+        }
+        document.addEventListener('submit', ktStoreScroll, true);
+    })();
+
+    // 폼 onsubmit용: 이번 제출은 막고, 확인 시 프로그램적으로 제출(핸들러는 form action에 있음)
+    function ktConfirmSubmit(form, msg){
+        // form.submit() 은 submit 이벤트를 안 띄우므로 여기서 직접 스크롤을 저장한다.
+        ktConfirm(msg, function(){ ktStoreScroll(); HTMLFormElement.prototype.submit.call(form); });
+        return false;
+    }
+    // 버튼 onclick용: 버튼의 asp-page-handler/name/value 보존을 위해 확인 후 버튼을 다시 클릭
+    function ktConfirmClick(btn, msg){
+        if(btn.__ktok){ btn.__ktok=false; return true; }
+        ktConfirm(msg, function(){ btn.__ktok=true; ktStoreScroll(); btn.click(); });
+        return false;
+    }
+
+    // 결과 알림 토스트: 클릭하거나 3초 지나면 사라짐
+    document.querySelectorAll('.kt-toast').forEach(function(t){
+        var hide=function(){ t.classList.add('hide'); setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); }, 300); };
+        t.addEventListener('click', hide);
+        setTimeout(hide, 3000);
+    });
+</script>
 @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
