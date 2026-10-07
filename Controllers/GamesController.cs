@@ -159,6 +159,14 @@ public class LogsController(AppDbContext db) : ApiControllerBase
         if (logs is null || logs.Count == 0)
             return Ok(new { ok = true });
 
+        // 관리자가 이 계정의 로그 저장을 꺼 두었으면 받기만 하고 버린다(봇은 성공으로 알고 재전송하지 않음).
+        bool enabled = await db.Users.AsNoTracking()
+            .Where(u => u.Id == UserId)
+            .Select(u => u.LogUploadEnabled)
+            .FirstOrDefaultAsync();
+        if (!enabled)
+            return Ok(new { ok = true, stored = false });
+
         db.AppLogs.AddRange(logs.Select(l => new AppLog
         {
             UserId = UserId,

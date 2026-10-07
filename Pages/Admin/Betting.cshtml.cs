@@ -107,10 +107,39 @@ public class BettingModel(AppDbContext db, HierarchyService tree) : AdminPageMod
     {
         get
         {
+            if (IsBalanceBasis)
+            {
+                if (StartBalance <= 0m)
+                    return null;
+                decimal pct = Math.Round(BalanceProfit / StartBalance * 100m, 2);
+                // 시작잔액 대비 ±100% 를 넘는 변화는 베팅이 아니라 입출금이 섞인 것이다(예: 시작 3만원 →
+                // 입금 후 1천만원 = +29,400%). 그런 숫자는 오해만 주므로 표시하지 않는다.
+                return Math.Abs(pct) > 100m ? null : pct;
+            }
             decimal capital = EndBalance - TotalProfit;   // 베팅이익을 뺀 실질 원금(입금 포함)
             return capital > 0m ? Math.Round(TotalProfit / capital * 100m, 2) : null;
         }
     }
+
+    /// <summary>
+    /// 손익을 실제 잔액 변화(종료 − 시작)로 보여줄 수 있는가. 회원 1명이고 결과 필터가 없을 때만 참이다.
+    /// 여러 회원이면 첫/마지막 행이 서로 다른 계정의 잔액이고, 결과 필터를 걸면 중간 행이 빠져
+    /// 잔액 차이가 의미를 잃는다. 그 경우엔 봇이 보고한 Profit 합(기록 기준)으로 보여준다.
+    /// <para>
+    /// 예전엔 항상 Profit 합만 '총 이익'으로 보여줘서, 미정산 판돈·기록 누락분이 빠진 채 실제로는
+    /// 손실(잔액 −60,000)인데 이익(+5,000)으로 표시되는 일이 있었다.
+    /// </para>
+    /// </summary>
+    public bool IsBalanceBasis => UserId is not null && string.IsNullOrEmpty(Status) && TotalPoints > 0;
+
+    /// <summary>실제 지갑 변화: 마지막 베팅 정산 후 잔액 − 첫 베팅 직전 잔액. 입출금도 포함된다.</summary>
+    public decimal BalanceProfit => EndBalance - StartBalance;
+
+    /// <summary>화면의 '손익 합계/총 이익'에 쓰는 값.</summary>
+    public decimal DisplayProfit => IsBalanceBasis ? BalanceProfit : TotalProfit;
+
+    /// <summary>잔액 기준 − 기록 기준. 0이 아니면 미정산 판돈·기록 누락·입출금 등이 있다는 뜻.</summary>
+    public decimal ProfitGap => BalanceProfit - TotalProfit;
 
     /// <summary>
     /// The plotted points as JSON for the hover crosshair. Handed to the browser in a data attribute

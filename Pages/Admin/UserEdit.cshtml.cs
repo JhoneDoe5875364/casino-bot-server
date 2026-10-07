@@ -113,6 +113,15 @@ public class UserEditModel(AppDbContext db, HierarchyService tree, SessionNotifi
     public RoomCooldownSetting? SettingsCooldown { get; set; }
     public List<StrategyChain> SettingsChains { get; set; } = [];
 
+    // 업치기(파레이): 타입 15 — Number 1=시작금액(단계수 N은 그 행의 BettingMethod), 2=일정금액, 3=합산수익, 4=누적실패 임계, 5=실패 시 배수
+    public int UpchigiStepCount { get; set; } = 1;
+    public decimal? UpchigiStart { get; set; }
+    public decimal? UpchigiFlat { get; set; }
+    public decimal? UpchigiThreshold { get; set; }
+    public decimal? UpchigiFailThreshold { get; set; }
+    public decimal? UpchigiMultiplier { get; set; }
+    public decimal? UpchigiMaxMultiplier { get; set; }
+
     /// <summary>전략 스텝의 타입 라벨(베팅금/행렬 타입 코드를 공유).</summary>
     public string StrategyTypeLabel(int t)
     {
@@ -130,7 +139,7 @@ public class UserEditModel(AppDbContext db, HierarchyService tree, SessionNotifi
     }
 
     public async Task<IActionResult> OnPostSaveAsync(
-        int id, string displayName, DateTime? expirationDate, bool isActive = false, bool diagnosticLogging = false,
+        int id, string displayName, DateTime? expirationDate, bool isActive = false, bool diagnosticLogging = false, bool logUploadEnabled = false,
         bool useProviderPragmatic = false, bool useProviderEvolution = false, string username = "", string? returnTo = null)
     {
         var target = await LoadManageableAsync(id);
@@ -161,7 +170,9 @@ public class UserEditModel(AppDbContext db, HierarchyService tree, SessionNotifi
         target.DisplayName = string.IsNullOrWhiteSpace(displayName) ? target.Username : displayName.Trim();
         target.ExpirationDate = (expirationDate.HasValue ? PragmaticBot.Server.Services.KoreaTime.DateToUtc(expirationDate.Value.Date.AddDays(1).AddSeconds(-1)) : (System.DateTime?)null);
         target.IsActive = isActive;
-        target.DiagnosticLogging = diagnosticLogging;
+        target.LogUploadEnabled = logUploadEnabled;
+        // 로그 저장이 꺼져 있으면 진단 로그는 켤 수 없다(화면에서 비활성화되지만 서버에서도 강제).
+        target.DiagnosticLogging = logUploadEnabled && diagnosticLogging;
 
         // capped by whoever owns the branch above this account, and never left empty
         var owner = target.ParentId is { } pid ? await Db.Users.FindAsync(pid) : null;
@@ -365,6 +376,52 @@ public class UserEditModel(AppDbContext db, HierarchyService tree, SessionNotifi
         await Db.SaveChangesAsync();
         TempData["Ok"] = $"{BetTypeLabel(settingsBetType)} 베팅금 {parsed.Count}개를 저장했습니다.";
         return RedirectToPage(new { id, settingsBetType });
+    }
+
+    /// <summary>업치기(타입 15) 전용 저장: 봇과 같은 매핑(Number 1=시작금액+단계수, 2=일정금액, 3=합산수익).</summary>
+    public async Task<IActionResult> OnPostSaveUpchigiAsync(
+        int id, string? upStepCount, string? upStart, string? upFlat, string? upThreshold,
+        string? upFailThreshold, string? upMultiplier, string? upMaxMultiplier)
+    {
+        var target = await LoadManageableAsync(id);
+        if (target is null || target.Role != UserRole.Member)
+        {
+            TempData["Err"] = "이 회원의 설정을 수정할 권한이 없습니다.";
+            return RedirectToPage(new { id });
+        }
+
+        static decimal? Money(string? s)
+            => decimal.TryParse((s ?? "").Replace(",", "").Trim(), out var v) && v > 0m ? v : null;
+        int step = int.TryParse((upStepCount ?? "").Trim(), out var n) && n > 0 ? n : 1;
+
+        var start = Money(upStart);
+        var flat = Money(upFlat);
+        var threshold = Money(upThreshold);
+        var failThreshold = Money(upFailThreshold);
+        // 배수·배수상한은 1 초과일 때만 유효(봇과 동일). Money는 >0만 통과시키므로 1 이하를 한 번 더 걸러낸다.
+        var multiplier = Money(upMultiplier) is { } mv && mv > 1m ? (decimal?)mv : null;
+        var maxMultiplier = Money(upMaxMultiplier) is { } mmv && mmv > 1m ? (decimal?)mmv : null;
+
+        // 봇 저장과 동일: 시작금액이 있을 때만 단계수를 그 행(Number 1)의 BettingMethod로 함께 기록.
+        var rows = new List<BetAmountSetting>();
+        if (start is not null)
+            rows.Add(new BetAmountSetting { UserId = id, BetAmountType = 15, Number = 1, Amount = start, BettingMethod = step });
+        if (flat is not null)
+            rows.Add(new BetAmountSetting { UserId = id, BetAmountType = 15, Number = 2, Amount = flat });
+        if (threshold is not null)
+            rows.Add(new BetAmountSetting { UserId = id, BetAmountType = 15, Number = 3, Amount = threshold });
+        if (failThreshold is not null)
+            rows.Add(new BetAmountSetting { UserId = id, BetAmountType = 15, Number = 4, Amount = failThreshold });
+        if (multiplier is not null)
+            rows.Add(new BetAmountSetting { UserId = id, BetAmountType = 15, Number = 5, Amount = multiplier });
+        if (maxMultiplier is not null)
+            rows.Add(new BetAmountSetting { UserId = id, BetAmountType = 15, Number = 6, Amount = maxMultiplier });
+
+        await Db.BetAmountSettings.Where(b => b.UserId == id && b.BetAmountType == 15).ExecuteDeleteAsync();
+        Db.BetAmountSettings.AddRange(rows);
+        await Db.SaveChangesAsync();
+        TempData["Ok"] = "업치기 설정을 저장했습니다.";
+        return RedirectToPage(new { id });
     }
 
     /// <summary>행렬 셀 교체 저장(한 줄 = 한 행, 열 금액을 쉼표로).</summary>
@@ -736,6 +793,18 @@ public class UserEditModel(AppDbContext db, HierarchyService tree, SessionNotifi
                     b.BettingMethod is { } m ? $"{b.Number}={b.Amount},{m}" : $"{b.Number}={b.Amount}"));
             }
             SettingsBetText = BetTextByType.GetValueOrDefault(SettingsBetType, "");
+
+            // 업치기(타입 15): 봇의 전용 패널과 같은 라벨로 보여주려고 Number→의미로 풀어 담는다.
+            var upEntries = await Db.BetAmountSettings.AsNoTracking()
+                .Where(b => b.UserId == id && b.BetAmountType == 15).ToListAsync();
+            var upStartEntry = upEntries.FirstOrDefault(b => b.Number == 1);
+            UpchigiStart = upStartEntry?.Amount;
+            UpchigiStepCount = Math.Max(1, upStartEntry?.BettingMethod ?? 1);
+            UpchigiFlat = upEntries.FirstOrDefault(b => b.Number == 2)?.Amount;
+            UpchigiThreshold = upEntries.FirstOrDefault(b => b.Number == 3)?.Amount;
+            UpchigiFailThreshold = upEntries.FirstOrDefault(b => b.Number == 4)?.Amount;
+            UpchigiMultiplier = upEntries.FirstOrDefault(b => b.Number == 5)?.Amount;
+            UpchigiMaxMultiplier = upEntries.FirstOrDefault(b => b.Number == 6)?.Amount;
 
             // 행렬: 모든 타입의 셀·행규칙 텍스트를 미리 만들어 둔다.
             foreach (var (val, _) in MatrixTypeOptions)

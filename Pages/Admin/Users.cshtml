@@ -176,7 +176,8 @@
                                             <div class="actions" style="margin:6px 0 12px">
                                                 <label class="checks"><input type="checkbox" name="useProviderPragmatic" value="true" @(u.Providers.HasFlag(GameProviders.PragmaticPlay) ? "checked" : "") /> 프라그마틱</label>
                                                 <label class="checks"><input type="checkbox" name="useProviderEvolution" value="true" @(u.Providers.HasFlag(GameProviders.Evolution) ? "checked" : "") /> 에볼루션</label>
-                                                <label class="checks"><input type="checkbox" name="diagnosticLogging" value="true" @(u.DiagnosticLogging ? "checked" : "") /> 진단 로그</label>
+                                                <label class="checks"><input type="checkbox" name="logUploadEnabled" value="true" @(u.LogUploadEnabled ? "checked" : "") /> 로그 저장</label>
+                                                <label class="checks"><input type="checkbox" name="diagnosticLogging" value="true" @(u.DiagnosticLogging ? "checked" : "") @(u.LogUploadEnabled ? "" : "disabled") /> 진단 로그</label>
                                             </div>
                                             <button type="submit">저장</button>
                                         </form>

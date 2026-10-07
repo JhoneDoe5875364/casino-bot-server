@@ -81,7 +81,7 @@ public class UsersModel(AppDbContext db, HierarchyService tree, SessionNotifier 
     //    끝나면 목록으로 돌아온다. 크로스 페이지 폼 POST가 라우트 문제로 안 돼, 같은 페이지 핸들러로 처리한다.
 
     public async Task<IActionResult> OnPostSaveAsync(
-        int id, string displayName, DateTime? expirationDate, bool diagnosticLogging = false,
+        int id, string displayName, DateTime? expirationDate, bool diagnosticLogging = false, bool logUploadEnabled = false,
         bool useProviderPragmatic = false, bool useProviderEvolution = false, string username = "")
     {
         var target = await LoadManageableAsync(id);
@@ -102,7 +102,9 @@ public class UsersModel(AppDbContext db, HierarchyService tree, SessionNotifier 
         // 활성/비활성은 별도 토글 버튼(OnPostToggleActive)이 담당한다. 여기선 건드리지 않는다.
         target.DisplayName = string.IsNullOrWhiteSpace(displayName) ? target.Username : displayName.Trim();
         target.ExpirationDate = expirationDate.HasValue ? KoreaTime.DateToUtc(expirationDate.Value.Date.AddDays(1).AddSeconds(-1)) : (DateTime?)null;
-        target.DiagnosticLogging = diagnosticLogging;
+        target.LogUploadEnabled = logUploadEnabled;
+        // 로그 저장이 꺼져 있으면 진단 로그는 켤 수 없다(화면에서 비활성화되지만 서버에서도 강제).
+        target.DiagnosticLogging = logUploadEnabled && diagnosticLogging;
 
         var owner = target.ParentId is { } pid ? await Db.Users.FindAsync(pid) : null;
         var ceiling = owner?.Providers ?? GameProviders.All;

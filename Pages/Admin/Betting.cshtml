@@ -62,8 +62,18 @@
     <div class="card"><div class="label">건수</div><div class="value">@Model.TotalCount.ToString("N0")</div></div>
     <div class="card"><div class="label">배팅 합계</div><div class="value">@Model.TotalBet.ToString("N0")</div></div>
     <div class="card">
-        <div class="label">손익 합계</div>
-        <div class="value @(Model.TotalProfit >= 0 ? "ok" : "err")">@Model.TotalProfit.ToString("N0")</div>
+        <div class="label">손익 합계 <span class="muted">(@(Model.IsBalanceBasis ? "잔액 기준" : "기록 기준"))</span></div>
+        <div class="value @(Model.DisplayProfit >= 0 ? "ok" : "err")">@Model.DisplayProfit.ToString("+#,##0;-#,##0;0")</div>
+        @if (Model.IsBalanceBasis)
+        {
+            <div class="muted" style="font-size:12px;margin-top:4px">
+                기록 기준 @Model.TotalProfit.ToString("+#,##0;-#,##0;0")
+                @if (Model.ProfitGap != 0m)
+                {
+                    <text>· 차이 </text><span class="err">@Model.ProfitGap.ToString("+#,##0;-#,##0;0")</span>
+                }
+            </div>
+        }
     </div>
     <div class="card"><div class="label">당첨 / 미당첨 / 타이</div><div class="value">@Model.WinCount / @Model.LossCount / @Model.TieCount</div></div>
     <div class="card"><div class="label">미정산</div><div class="value @(Model.PendingCount > 0 ? "err" : "")">@Model.PendingCount.ToString("N0")</div></div>
@@ -129,11 +139,25 @@
                 <div><span>현재 잔액<small class="muted"> (최신 이력)</small></span><b>@cur.ToString("N0")</b></div>
             }
             <div>
-                <span>총 이익</span>
-                <b class="@(Model.TotalProfit >= 0 ? "ok" : "err")">
-                    @Model.TotalProfit.ToString("+#,##0;-#,##0;0")@if (Model.ProfitPercent is { } pct) { <text> (@pct.ToString("+0.##;-0.##;0")%)</text> }
+                <span>총 이익<small class="muted"> (@(Model.IsBalanceBasis ? "잔액 기준" : "기록 기준"))</small></span>
+                <b class="@(Model.DisplayProfit >= 0 ? "ok" : "err")">
+                    @Model.DisplayProfit.ToString("+#,##0;-#,##0;0")@if (Model.ProfitPercent is { } pct) { <text> (@pct.ToString("+0.##;-0.##;0")%)</text> }
                 </b>
             </div>
+            @if (Model.IsBalanceBasis)
+            {
+                <div>
+                    <span>기록 기준 손익<small class="muted"> (Σ Profit)</small></span>
+                    <b class="@(Model.TotalProfit >= 0 ? "ok" : "err")">@Model.TotalProfit.ToString("+#,##0;-#,##0;0")</b>
+                </div>
+                @if (Model.ProfitGap != 0m)
+                {
+                    <div title="미정산 판돈, 결과가 기록되지 않은 베팅, 입출금 등 기록 기준 손익에 잡히지 않은 잔액 변화">
+                        <span>차이<small class="muted"> (잔액 − 기록)</small></span>
+                        <b class="err">@Model.ProfitGap.ToString("+#,##0;-#,##0;0")</b>
+                    </div>
+                }
+            }
             <div><span>배팅 합계</span><b>@Model.TotalBet.ToString("N0")</b></div>
             <div><span>가동 시간</span><b>@Model.ElapsedText</b></div>
             <div><span>베팅 수</span><b>@Model.TotalPoints.ToString("N0")건</b></div>

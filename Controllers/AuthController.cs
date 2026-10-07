@@ -82,7 +82,7 @@ public class AuthController(
             && (user.ExpirationDate is null || user.ExpirationDate > DateTime.UtcNow)
             && user.CurrentSessionId == SessionId;
         // the bot polls this; it is also how it learns whether to upload Info-level logs
-        return Ok(new SessionCheckResponse(valid, user?.DiagnosticLogging ?? false));
+        return Ok(new SessionCheckResponse(valid, user is not null && user.LogUploadEnabled && user.DiagnosticLogging));
     }
 
     /// <summary>

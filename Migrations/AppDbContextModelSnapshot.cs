@@ -777,6 +777,9 @@ namespace PragmaticBot.Server.Migrations
                     b.Property<DateTime?>("LastLoginUtc")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<bool>("LogUploadEnabled")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<int?>("ParentId")
                         .HasColumnType("int");
 

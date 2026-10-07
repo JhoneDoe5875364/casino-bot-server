@@ -80,9 +80,12 @@ else
                     <input type="checkbox" name="useProviderEvolution" value="true" @(t.Providers.HasFlag(GameProviders.Evolution) ? "checked" : "") /> 에볼루션
                 </label>
                 <label class="checks">
-                    <input type="checkbox" name="diagnosticLogging" value="true" @(t.DiagnosticLogging ? "checked" : "") /> 진단 로그
+                    <input type="checkbox" name="logUploadEnabled" value="true" @(t.LogUploadEnabled ? "checked" : "") /> 로그 저장
                 </label>
-                <span class="muted">— 켜면 이 계정의 봇이 Info 로그까지 올립니다. 문제 재현 때만 켜고 바로 끄십시오.</span>
+                <label class="checks">
+                    <input type="checkbox" name="diagnosticLogging" value="true" @(t.DiagnosticLogging ? "checked" : "") @(t.LogUploadEnabled ? "" : "disabled") /> 진단 로그
+                </label>
+                <span class="muted">— 로그 저장을 끄면 이 계정의 로그는 오류 포함 아무것도 저장되지 않습니다. 진단 로그는 로그 저장이 켜져 있을 때 Info 로그까지 올립니다(문제 재현 때만 켜고 바로 끄십시오).</span>
                 @if (t.Role > UserRole.Member)
                 {
                     <span class="muted">— 끄면 산하 계정의 봇도 모두 종료됩니다.</span>
@@ -160,6 +163,28 @@ else
                 <p class="muted" style="margin:0 0 8px">한 줄에 <b>번호=금액</b> (필요 시 <b>번호=금액,방식</b>). 예: <span class="mono">1=10000</span></p>
                 <textarea name="betText" id="ktBetArea" rows="8" spellcheck="false" style="width:100%; box-sizing:border-box; font-family:Consolas,'D2Coding',monospace">@Model.SettingsBetText</textarea>
                 <div style="margin-top:8px"><button type="submit"><span id="ktBetLabel">@Model.BetTypeLabel(Model.SettingsBetType)</span> 베팅금 저장</button></div>
+            </form>
+        </div>
+
+        <div class="panel">
+            <h2 style="margin-top:0">업치기 설정</h2>
+            <p class="muted" style="margin:0 0 10px">서식 매칭 시 <b>시작금액</b>으로 시작 → 당첨하면 ×2로 자동 업치기(대상 동일). <b>단계 수(N)</b>만큼 당첨을 마치면 이후 <b>일정금액</b>으로 일반 베팅. 업치기 중 미당첨이면 1단계로 초기화. 사이클 수익이 <b>합산수익</b>을 넘으면 1단계부터 다시 시작(0/빈칸=미사용).</p>
+            <form method="post" asp-page-handler="SaveUpchigi" onsubmit="return ktConfirmSubmit(this, '업치기 설정을 저장할까요? 이 회원의 기존 업치기 값을 덮어씁니다.');">
+                <div class="actions" style="gap:12px; flex-wrap:wrap">
+                    <label class="field" style="margin:0"><span>단계 수(N)</span><input type="text" name="upStepCount" value="@(Model.UpchigiStepCount > 0 ? Model.UpchigiStepCount.ToString() : "")" autocomplete="off" inputmode="numeric" /></label>
+                    <label class="field" style="margin:0"><span>시작금액</span><input type="text" name="upStart" value="@(Model.UpchigiStart is > 0 ? Model.UpchigiStart.Value.ToString("0.##") : "")" autocomplete="off" inputmode="numeric" /></label>
+                    <label class="field" style="margin:0"><span>일정금액</span><input type="text" name="upFlat" value="@(Model.UpchigiFlat is > 0 ? Model.UpchigiFlat.Value.ToString("0.##") : "")" autocomplete="off" inputmode="numeric" /></label>
+                    <label class="field" style="margin:0"><span>합산수익</span><input type="text" name="upThreshold" value="@(Model.UpchigiThreshold is > 0 ? Model.UpchigiThreshold.Value.ToString("0.##") : "")" autocomplete="off" inputmode="numeric" /></label>
+                    <label class="field" style="margin:0"><span>누적실패 임계</span><input type="text" name="upFailThreshold" value="@(Model.UpchigiFailThreshold is > 0 ? Model.UpchigiFailThreshold.Value.ToString("0.##") : "")" autocomplete="off" inputmode="numeric" /></label>
+                    <label class="field" style="margin:0"><span>실패 시 배수</span><input type="text" name="upMultiplier" value="@(Model.UpchigiMultiplier is > 1 ? Model.UpchigiMultiplier.Value.ToString("0.##") : "")" autocomplete="off" inputmode="numeric" /></label>
+                    <label class="field" style="margin:0"><span>배수 상한</span><input type="text" name="upMaxMultiplier" value="@(Model.UpchigiMaxMultiplier is > 1 ? Model.UpchigiMaxMultiplier.Value.ToString("0.##") : "")" autocomplete="off" inputmode="numeric" /></label>
+                </div>
+                <p class="muted" style="margin:10px 0 0">
+                    · <b>합산수익(전체 목표)</b>: 돌리는 <b>모든 방의 합산 순손익</b>이 이 값을 넘으면 — 전체 실패금액을 다 메우고 합산수익만큼 더 벌면 — 단계와 상관없이 <b>모든 방을 1단계로 초기화</b>합니다. (0/빈칸=미사용)<br>
+                    · <b>N단계 완주 후</b>: <b>일정금액</b>이 있으면 일정금액으로 베팅하며, 당첨이면 일정베팅 유지, 미당첨(실패)이면 1단계로 초기화해 업치기 재시작. 일정금액을 비우면 일정베팅 없이 바로 1단계부터 업치기 재시작.<br>
+                    · <b>누적실패/배수/상한</b>: 누적 <b>미당첨 횟수</b>(업치기 단계·일정베팅 모두 포함)가 <b>누적실패 임계</b>에 도달하면 그 방의 <b>시작금액과 일정금액</b>을 함께 <b>실패 시 배수</b>만큼 올립니다(×2→×4…, 방마다 따로). <b>배수 상한</b>까지만 오르고 전체 합산수익 리셋 시 ×1로 복귀. (임계 0/빈칸 또는 배수 1 이하=미사용, 배수 상한 0/빈칸=무제한)
+                </p>
+                <div style="margin-top:12px"><button type="submit">업치기 저장</button></div>
             </form>
         </div>
 

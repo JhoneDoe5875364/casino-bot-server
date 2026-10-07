@@ -101,6 +101,13 @@ public class User
     /// </summary>
     public bool DiagnosticLogging { get; set; }
 
+    /// <summary>
+    /// 이 계정의 봇 로그를 서버 DB에 저장할지 여부. 끄면 Warning/Error 를 포함해 아무것도 저장하지 않는다
+    /// (서버가 수신 시점에 버리므로 봇 재배포 없이 즉시 적용). 진단 로그는 이 값이 켜져 있을 때만 켤 수 있다.
+    /// 새 계정은 꺼짐으로 시작한다(DB 용량 절감). 마이그레이션 당시의 기존 계정만 켜짐으로 채워졌다.
+    /// </summary>
+    public bool LogUploadEnabled { get; set; }
+
     public ICollection<DomainSite> DomainSites { get; set; } = new List<DomainSite>();
 }
 

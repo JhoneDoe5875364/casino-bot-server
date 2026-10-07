@@ -124,6 +124,21 @@
         t.addEventListener('click', hide);
         setTimeout(hide, 3000);
     });
+
+    // 계정 설정: 로그 저장이 꺼져 있으면 진단 로그는 비활성(체크도 해제). 폼마다 자기 쌍만 맞춘다.
+    document.querySelectorAll('input[name="logUploadEnabled"]').forEach(function(log){
+        var form = log.form;
+        var diag = form ? form.querySelector('input[name="diagnosticLogging"]') : null;
+        if (!diag) return;
+        var sync = function(){
+            diag.disabled = !log.checked;
+            if (!log.checked) diag.checked = false;
+            var lbl = diag.closest('label');
+            if (lbl) lbl.style.opacity = log.checked ? '' : '0.45';
+        };
+        log.addEventListener('change', sync);
+        sync();
+    });
 </script>
 @await RenderSectionAsync("Scripts", required: false)
 </body>
