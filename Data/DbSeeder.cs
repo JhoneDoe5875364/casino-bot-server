@@ -18,6 +18,8 @@ public static class DbSeeder
                 PasswordHash = PasswordHasher.Hash(password),
                 IsActive = true,
                 Role = UserRole.Owner,
+                // 본사는 하위 계정 권한의 상한이므로 모든 프로바이더를 가져야 한다.
+                Providers = GameProviders.All,
                 ParentId = null,
                 TreePath = "/"
             };
